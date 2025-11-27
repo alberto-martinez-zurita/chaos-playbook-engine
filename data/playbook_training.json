@@ -1,0 +1,9 @@
+{
+  "get_inventory": {
+    "500": {
+      "strategy": "escalate_to_human",
+      "reasoning": "The get_inventory tool is consistently returning a 500 error, indicating a persistent server-side issue. Escalation to a human is the recommended strategy as automated retries and waits have not resolved the problem.",
+      "config": {}
+    }
+  }
+}
