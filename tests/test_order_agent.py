@@ -12,7 +12,7 @@ async def test_agent_evaluation(mock_send_request):
     
     async def mock_success(*args, **kwargs):
         endpoint = args[1] if len(args) > 1 else ""
-        print(f"🎭 MOCKED: {endpoint}")  # Debug confirmation
+        
         
         if "inventory" in endpoint:
             return {"status": "success", "code": 200, "data": {"pets": [{"id": 12345, "name": "Fluffy", "status": "available"}]}}
@@ -24,7 +24,7 @@ async def test_agent_evaluation(mock_send_request):
             return {"status": "success", "code": 200, "data": {"id": 12345, "status": "sold"}}
         return {"status": "success", "code": 200, "data": {}}
     
-    # ✅ FIX 1: Proper AsyncMock setup
+  
     mock_send_request.side_effect = mock_success
 
     result = await AgentEvaluator.evaluate(
