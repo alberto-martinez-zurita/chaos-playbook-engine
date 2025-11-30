@@ -1,19 +1,21 @@
 [tool.poetry]
 name = "chaos-playbook-engine"
 version = "0.1.0"
-description = "Chaos Engineering + RAG for Resilient Order Agents"
+description = "A production-grade chaos engineering framework for AI agents"
 authors = ["Alberto Martinez <albertomz@gmail.com>"]
 readme = "README.md"
-packages = [{include = "chaos_playbook_engine", from = "src"}]
+packages = [{include = "chaos_engine", from = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"
-google-adk = "^1.18.0"
+google-adk = {extras = ["eval"], version = "^1.19.0"}
 pydantic-settings = "^2.0.0"
 python-dotenv = "^1.0.0"
 matplotlib = "^3.10.7"
 seaborn = "^0.13.2"
 numpy = "^2.3.5"
+rich = "^14.2.0"
+pyautogui = "^0.9.54"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"
