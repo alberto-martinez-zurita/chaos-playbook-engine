@@ -13,8 +13,6 @@
 
 We moved beyond "prompt engineering" to **Parametric Engineering**. By running **1,000 controlled experiments** across 9 failure rates, we proved that agents equipped with our Playbook Engine achieve **98% reliability** in production environments where standard agents fail.
 
-
-
 ---
 
 ## 📊 The "Killer" Metric: 1.4M% ROI
@@ -27,9 +25,23 @@ We didn't just build an agent; we proved a thesis. Under realistic production ch
 | **Data Consistency** | 0.40 errors/run | **0.01 errors/run** | **98% Safer** 🛡️ |
 | **Revenue Impact** | Loss: $7,050 / 100 orders | **Full Recovery** | **1.4M% ROI** 💰 |
 
-> *Data Source: `reports/parametric_experiments/run_20251129_144331` (14,000 total ops verified).*
+> *Data Source: [`reports/parametric_experiments/run_20251129_144331`](./reports/parametric_experiments/run_20251129_144331/dashboard.html) (14,000 total ops verified).*
 
 ---
+## 📚 Documentation & Evidence
+
+We believe in transparency and rigor. Explore the full project details:
+
+  * 📖 **[Project Narrative (The Pitch)](./docs/CAPSTONE_NARRATIVE.md)**: The business case, ROI analysis, and problem statement.
+  * 🏗️ **[System Architecture](https://github.com/alberto-martinez-zurita/chaos-playbook-lab/docs/ARCHITECTURE.md)**: Deep dive into the Hybrid Deterministic/Probabilistic engine, `src-layout`, and design patterns.
+  * 🏛️ **[Decision Records (ADRs)](https://github.com/alberto-martinez-zurita/chaos-playbook-lab/docs/ADR.md)**: The engineering trade-offs behind our architecture (Why JSON? Why Streaming Aggregation?).
+  * 🔬 **[Scientific Report](https://github.com/alberto-martinez-zurita/chaos-playbook-lab/docs/SCIENTIFIC_REPORT.md)**: The empirical evidence from 14,000 parametric experiments (p \< 0.01).
+  * 🔮 **[Innovation Roadmap](https://github.com/alberto-martinez-zurita/chaos-playbook-lab/docs/INNOVATION.md)**: Our vision for Prompt Science, PlaybookOps, and Digital Twins.
+  * 📘 **[User Guide](https://github.com/alberto-martinez-zurita/chaos-playbook-lab/docs/USER_GUIDE.md)**: Detailed instructions for configuring chaos scenarios and interpreting dashboards.
+  * 🛡️ **[CLEAR Audit Report](https://github.com/alberto-martinez-zurita/chaos-playbook-lab/docs/PROJECT_REPORT.md)**: A detailed audit of the code quality, SRE practices, and GreenOps compliance (Level 5 Elite).
+  * 💻 **[Code Wiki](https://github.com/alberto-martinez-zurita/chaos-playbook-lab/docs/CODE_WIKI.md)**: A developer-centric guide to the codebase structure, classes, and extension points.
+
+-----
 
 ## ⚡ Quick Start
 
@@ -68,20 +80,7 @@ open reports/parametric_experiments/run_*/dashboard.html
 
 -----
 
-## 📚 Documentation & Evidence
 
-We believe in transparency and rigor. Explore the full project details:
-
-  * 📖 **[Project Narrative (The Pitch)](https://github.com/alberto-martinez-zurita/chaos-playbook-lab/docs/CAPSTONE_NARRATIVE.md)**: The business case, ROI analysis, and problem statement.
-  * 🏗️ **[System Architecture](https://github.com/alberto-martinez-zurita/chaos-playbook-lab/docs/ARCHITECTURE.md)**: Deep dive into the Hybrid Deterministic/Probabilistic engine, `src-layout`, and design patterns.
-  * 🏛️ **[Decision Records (ADRs)](https://github.com/alberto-martinez-zurita/chaos-playbook-lab/docs/ADR.md)**: The engineering trade-offs behind our architecture (Why JSON? Why Streaming Aggregation?).
-  * 🔬 **[Scientific Report](https://github.com/alberto-martinez-zurita/chaos-playbook-lab/docs/SCIENTIFIC_REPORT.md)**: The empirical evidence from 14,000 parametric experiments (p \< 0.01).
-  * 🔮 **[Innovation Roadmap](https://github.com/alberto-martinez-zurita/chaos-playbook-lab/docs/INNOVATION.md)**: Our vision for Prompt Science, PlaybookOps, and Digital Twins.
-  * 📘 **[User Guide](https://github.com/alberto-martinez-zurita/chaos-playbook-lab/docs/USER_GUIDE.md)**: Detailed instructions for configuring chaos scenarios and interpreting dashboards.
-  * 🛡️ **[CLEAR Audit Report](https://github.com/alberto-martinez-zurita/chaos-playbook-lab/docs/PROJECT_REPORT.md)**: A detailed audit of the code quality, SRE practices, and GreenOps compliance (Level 5 Elite).
-  * 💻 **[Code Wiki](https://github.com/alberto-martinez-zurita/chaos-playbook-lab/docs/CODE_WIKI.md)**: A developer-centric guide to the codebase structure, classes, and extension points.
-
------
 
 ## 🏗️ Architecture: Hybrid Deterministic + Probabilistic
 

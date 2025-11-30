@@ -1,4 +1,3 @@
-````markdown
 # 📘 User Guide: Chaos Playbook Engine
 
 **Welcome to the Laboratory.** This guide explains how to operate the Chaos Playbook Engine, run parametric simulations, and interpret the results.
@@ -112,7 +111,7 @@ Use this to tweak the agent model or session backend.
 ```yaml
 environment: dev
 agent:
-  model: gemini-2.0-flash-exp  # Change LLM here
+  model: gemini-2.5-flash-lite  # Change LLM here
 runner:
   type: InMemoryRunner         # Best for simulations
 session_service:
@@ -132,7 +131,4 @@ This is the "Brain" of the agent. You can edit `training.json` to add new recove
     "max_retries": 3
   }
 }
-```
-
-```
 ```
