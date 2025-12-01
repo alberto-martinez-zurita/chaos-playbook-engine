@@ -145,7 +145,7 @@ sequenceDiagram
 
 -----
 
-## 🛡️ Engineering Excellence ((Production Grade))
+## 🛡️ Engineering Excellence (Production Grade)
 
 This codebase follows the **Clean Architecture & SRE Principles**, audited for the Enterprise Track judges.
 
