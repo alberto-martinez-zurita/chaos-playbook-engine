@@ -7,20 +7,20 @@ import random
 import json
 from pathlib import Path
 import asyncio
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 from google.adk.models.google_llm import Gemini
-from google.genai import types
-from chaos_engine.chaos.proxy import ChaosProxy 
-from chaos_engine.core.playbook_manager import PlaybookManager
+from google.genai import types 
+from chaos_engine.chaos.proxy import ChaosProxy
+from chaos_engine.core.playbook_storage import PlaybookStorage
 from dotenv import load_dotenv
 
 load_dotenv()
 
-chaos_proxy = ChaosProxy(failure_rate=0.1, seed=42, mock_mode=False)
+chaos_proxy = ChaosProxy(failure_rate=0.1, seed=42, mock_mode=True)
  
-#load previous playbook to resume
-playbook = PlaybookManager("data/playbook_training.json")
- 
+# Load previous playbook to resume
+playbook_storage = PlaybookStorage("data/playbook_training.json")
+
 #define the opration to get playbooks and addend a new case used during the training.
 def get_playbook():
     return playbook.get_all()
@@ -83,7 +83,7 @@ async def wait_seconds(seconds: float) -> dict:
     return {"status": "success", "message": f"Waited {seconds} seconds"}
 
 agent=root_agennt= LlmAgent(
-    name="OrderAgent",
+    name="OrderAgent", 
     model=Gemini(
         model="gemini-2.5-flash-lite",
         retry_options=types.HttpRetryOptions(
@@ -150,4 +150,3 @@ If escalation occurs, set "completed" to false and include a human-readable expl
     """,
     tools=[get_inventory, find_pets_by_status, place_order, update_pet_status, wait_seconds, get_playbook]
 )
- 

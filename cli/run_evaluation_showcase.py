@@ -52,6 +52,7 @@ async def run_showcase():
                 {"tool_name": "get_inventory", "tool_input": {}},
                 {"tool_name": "find_pets_by_status", "tool_input": {"status": "available"}},
                 {"tool_name": "place_order", "tool_input": {"quantity": 1},"pet_id": 12345},
+                {"tool_name": "place_order", "tool_input": {"quantity": 1, "pet_id": 12345}},
                 {"tool_name": "update_pet_status", "tool_input": {"pet_id": 12345, "status": "sold", "name": "MockPet"}}
             ],
             "reference": ""

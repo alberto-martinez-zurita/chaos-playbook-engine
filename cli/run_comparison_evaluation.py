@@ -45,7 +45,7 @@ from google.adk.evaluation.agent_evaluator import AgentEvaluator
 
 # Module to test
 import chaos_engine.agents.order_agent as order_agent_module
-from chaos_engine.core.playbook_manager import PlaybookManager
+from chaos_engine.core.playbook_storage import PlaybookStorage
 from chaos_engine.chaos.proxy import ChaosProxy
 
 # ==============================================================================
@@ -127,7 +127,7 @@ async def run_single_eval_case(
     if not pb_path_obj.exists():
         pb_path_obj = project_root / playbook_path
         
-    scoped_playbook = PlaybookManager(str(pb_path_obj))
+    scoped_playbook = PlaybookStorage(str(pb_path_obj))
 
     # 3. EJECUCIÓN DEL EVALUADOR
     start_time = time.time()

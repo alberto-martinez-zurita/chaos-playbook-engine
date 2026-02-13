@@ -10,35 +10,17 @@ import asyncio
 from typing import Any, Dict, Optional
 from google.adk.models.google_llm import Gemini
 from google.genai import types
-from core.chaos_proxy import ChaosProxy
-from core.playbook_manager import PlaybookManager
+from ..core.chaos_proxy import ChaosProxy
+from ..core.playbook_storage import PlaybookStorage
+from ..tools.playbook_tools import get_playbook, add_scenario_to_playbook
 from dotenv import load_dotenv
   
-load_dotenv()
+load_dotenv() # TODO: Move to main CLI entry point
 
 
-chaos_proxy = ChaosProxy(failure_rate=0.6,mock_mode=True) 
- 
-
- 
- #load previous playbook to resume
-playbook = PlaybookManager("data/playbook_training.json")
- 
-#define the opration to get playbooks and addend a new case used during the training.
- 
-def get_playbook():
-    return playbook.get_all()
- 
-def add_scenario_to_playbook(operation: str, status_code: str,strategy: str, reasoning: str,config: Optional[Dict[str, Any]] = None):
-    playbook.add_operation_or_response(
-        operation=operation,
-        status_code=status_code,
-        strategy=strategy,
-        reasoning=reasoning,
-        config=config
-    )
-       
- 
+# TODO: These dependencies should be injected from the CLI, not created globally.
+chaos_proxy = ChaosProxy(failure_rate=0.6, mock_mode=True)
+playbook_storage = PlaybookStorage("data/playbook_training.json")
 
  
 # Tool 1: GET /store/inventory
@@ -98,6 +80,9 @@ async def wait_seconds(seconds: float) -> dict:
     await asyncio.sleep(seconds)
     return {"status": "success", "message": f"Waited {seconds} seconds"}
  
+
+
+
  
 async def train_agent():
     #agents definition to be moved in a separete file
@@ -302,10 +287,6 @@ async def train_agent():
     runner = InMemoryRunner(agent=trainingAgent)
    
     await runner.run_debug("Purchase an available pet.")
-   
-   
-    #update the result of the training in the playbook file
-    playbook.save()
  
 if __name__ == "__main__":
     asyncio.run(train_agent())

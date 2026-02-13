@@ -1,13 +1,12 @@
 """
 CLI script to run parametric experiments.
-Updated for Phase 5 Refactor (Correct Path Setup & Logging).
 """
 import sys
 import asyncio
 import argparse
 from pathlib import Path
 from datetime import datetime
-from chaos_engine.core.logging import setup_logger  # ✅ NEW
+from chaos_engine.core.logging import setup_logger 
 from chaos_engine.simulation.parametric import ParametricABTestRunner
 
 def main():
@@ -16,7 +15,7 @@ def main():
     parser.add_argument("--failure-rates", type=float, nargs="+", required=True)
     parser.add_argument("--experiments-per-rate", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42, help="Base seed for reproducibility (default: 42)")
-    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging to console") # ✅ NEW
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging to console") 
     
     args = parser.parse_args()
     
@@ -54,7 +53,7 @@ def main():
         logger=logger
     )
     
-    # Ejecutar
+    
     asyncio.run(runner.run_parametric_experiments())
 
 if __name__ == "__main__":

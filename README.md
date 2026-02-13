@@ -1,9 +1,10 @@
 # 🚀 Chaos Playbook Engine: The Resilience Laboratory
+
 > **"Don't just survive the storm. Learn from it."**
 
 [![Status](https://img.shields.io/badge/Status-Phase%206%20Complete%20✅-brightgreen)](https://github.com/google/adk-python)
 [![Google ADK](https://img.shields.io/badge/Framework-Google%20ADK%20-blue)](https://google.github.io/adk-docs/)
-[![Quality](https://img.shields.io/badge/Code%20Quality-Enterprise%20Grade%205%20(Elite)-purple)](https://github.com/google/adk-samples)
+[![Quality](<https://img.shields.io/badge/Code%20Quality-Enterprise%20Grade%205%20(Elite)-purple>)](https://github.com/google/adk-samples)
 [![Coverage](https://img.shields.io/badge/Test%20Coverage-92%25-green)](https://github.com/google/adk-python)
 [![Experiments](https://img.shields.io/badge/Validated%20Runs-14%2C000-orange)](https://github.com/google/adk-samples)
 
@@ -19,44 +20,55 @@ We moved beyond "prompt engineering" to **Parametric Engineering**. By running *
 
 We didn't just build an agent; we proved a thesis. Under realistic production chaos (20% API failure rate), the difference is catastrophic:
 
-| Metric | Baseline Agent | Playbook Agent | Improvement |
-| :--- | :--- | :--- | :--- |
-| **Success Rate** | 37% (Fails 2/3 times) | **98% (Bulletproof)** | **+60%** 🚀 |
-| **Data Consistency** | 26% inconsistent state | **2% inconsistent state** | **98% Safer** 🛡️ |
-| **Revenue Impact** | Loss: 60% orders | **Full Recovery** | **3x Revenue in chaos** 💰 |
+| Metric               | Baseline Agent         | Playbook Agent            | Improvement                |
+| :------------------- | :--------------------- | :------------------------ | :------------------------- |
+| **Success Rate**     | 37% (Fails 2/3 times)  | **98% (Bulletproof)**     | **+60%** 🚀                |
+| **Data Consistency** | 26% inconsistent state | **2% inconsistent state** | **98% Safer** 🛡️           |
+| **Revenue Impact**   | Loss: 60% orders       | **Full Recovery**         | **3x Revenue in chaos** 💰 |
 
-> *Data Source: [`reports/parametric_experiments/run_20251129_144331`](./reports/parametric_experiments/run_20251129_144331/report.md) (18,000 total simulated agent ops).*<br>
-> *Data Source: [`reports/parametric_experiments/run_20251129_231224`](./reports/parametric_experiments/run_20251129_231224/report.md) (280 total real agent ops with random mock api).*
+> _Data Source: [`reports/parametric_experiments/run_20251129_144331`](./reports/parametric_experiments/run_20251129_144331/report.md) (18,000 total simulated agent ops)._<br>
+> _Data Source: [`reports/parametric_experiments/run_20251129_231224`](./reports/parametric_experiments/run_20251129_231224/report.md) (280 total real agent ops with random mock api)._
 
 ---
+
 ## 📚 Documentation & Evidence
 
 We believe in transparency and rigor. Explore the full project details:
 
-  * 📖 **[Project Narrative (The Pitch)](./docs/CAPSTONE_NARRATIVE.md)**: The business case, ROI analysis, and problem statement.
-  * 🏗️ **[System Architecture](./docs/ARCHITECTURE.md)**: Deep dive into the Hybrid Deterministic/Probabilistic engine, source layout, and design patterns.
-  * 🏛️ **[Decision Records (ADRs)](./docs/ADR.md)**: The engineering trade-offs behind our architecture (Why JSON? Why Streaming Aggregation?).
-  * 🎓 **[Lessons Learned](./docs/LESSONS_LEARNED.md)**: From "Vibe-Based" to "Parametric Science". Why generic retries fail and how to engineer true resilience.
-  * 🔬 **[Scientific Report](./docs/SCIENTIFIC_REPORT.md)**: The empirical evidence from 14,000 parametric experiments (p \< 0.01).
-  * 🔮 **[Innovation Roadmap](./docs/INNOVATION.md)**: Our vision for Prompt Science, PlaybookOps, and Digital Twins.
-  * 📘 **[User Guide](./docs/USER_GUIDE.md)**: Detailed instructions for configuring chaos scenarios and interpreting dashboards.
-  * 💻 **[Code Wiki](./docs/CODE_WIKI.md)**: A developer-centric guide to the codebase structure, classes, and extension points.
-  * 🛡️ **[Software Quality Report](./docs/SOFTWARE_QUALITY.md)**: A detailed audit of the code quality, SRE practices, and GreenOps compliance (Level 5 Elite).
------
+- 📖 **[Project Narrative (The Pitch)](./docs/CAPSTONE_NARRATIVE.md)**: The business case, ROI analysis, and problem statement.
+- 🏗️ **[System Architecture](./docs/ARCHITECTURE.md)**: Deep dive into the Hybrid Deterministic/Probabilistic engine, source layout, and design patterns.
+- 🏛️ **[Decision Records (ADRs)](./docs/ADR.md)**: The engineering trade-offs behind our architecture (Why JSON? Why Streaming Aggregation?).
+- 🎓 **[Lessons Learned](./docs/LESSONS_LEARNED.md)**: From "Vibe-Based" to "Parametric Science". Why generic retries fail and how to engineer true resilience.
+- 🔬 **[Scientific Report](./docs/SCIENTIFIC_REPORT.md)**: The empirical evidence from 14,000 parametric experiments (p \< 0.01).
+- 🔮 **[Innovation Roadmap](./docs/INNOVATION.md)**: Our vision for Prompt Science, PlaybookOps, and Digital Twins.
+- 📘 **[User Guide](./docs/USER_GUIDE.md)**: Detailed instructions for configuring chaos scenarios and interpreting dashboards.
+- 💻 **[Code Wiki](./docs/CODE_WIKI.md)**: A developer-centric guide to the codebase structure, classes, and extension points.
+- 🛡️ **[Software Quality Report](./docs/SOFTWARE_QUALITY.md)**: A detailed audit of the code quality, SRE practices, and GreenOps compliance (Level 5 Elite).
+
+---
 
 ## ⚡ Quick Start
 
 Run the full parametric simulation in under 2 minutes. No Cloud credentials required (Mock Mode).
 
 ### 1. Installation
+
 ```bash
 # Clone and enter
 git clone [https://github.com/alberto-martinez-zurita/chaos-playbook-lab.git](https://github.com/alberto-martinez-zurita/chaos-playbook-lab)
 cd chaos-playbook-engine
 
-# Install dependencies (Poetry or Pip)
+# Install dependencies Pip
 pip install -r requirements.txt
-````
+
+# Or install dependencies Poetry
+poetry install
+
+
+
+
+
+```
 
 ### 2\. Run the Laboratory
 
@@ -76,6 +88,11 @@ poetry run python cli/run_comparison.py \
   --experiments-per-rate 25 \
   --verbose
 
+  ##TODO: update parameters used by the script
+
+#In case of import problem prepend PYTHONPATH=$(pwd)/src to poetry command.
+
+
 ```
 
 ### 3\. View the Evidence
@@ -90,9 +107,7 @@ open .reports/parametric_experiments/run_*/report.md
 open reports/parametric_experiments/run_*/dashboard.html
 ```
 
------
-
-
+---
 
 ## 🏗️ Architecture: Hybrid Deterministic + Probabilistic
 
@@ -116,7 +131,7 @@ sequenceDiagram
 
     %% Step 2: La recuperación (Reasoning)
     Note right of Agent: ⚠️ Agent error detection
-    
+
     Agent->>Strategy: Retrieve Recovery Strategy
     activate Strategy
     Strategy-->>Agent: Return: "Apply Jittered Backoff"
@@ -137,13 +152,14 @@ sequenceDiagram
     deactivate Proxy
 
 ```
+
 <br>
 
-  * **`src/chaos_engine/agents`**: The actors. Uses **Google ADK `LlmAgent`** for reasoning over complex failures .
-  * **`src/chaos_engine/chaos`**: The adversary. A **Chaos Proxy** that injects failures deterministically (Seed-controlled) .
-  * **`assets/playbooks`**: The knowledge. A JSON-based RAG layer containing proven recovery strategies .
+- **`src/chaos_engine/agents`**: The actors. Uses **Google ADK `LlmAgent`** for reasoning over complex failures .
+- **`src/chaos_engine/chaos`**: The adversary. A **Chaos Proxy** that injects failures deterministically (Seed-controlled) .
+- **`assets/playbooks`**: The knowledge. A JSON-based RAG layer containing proven recovery strategies .
 
------
+---
 
 ## 🛡️ Engineering Excellence (Production Grade)
 
@@ -151,44 +167,47 @@ This codebase follows the **Clean Architecture & SRE Principles**, audited for t
 
 ### 🧠 Pillar I: Cognitive Maintainability
 
-  * **Type Safety:** 100% strictly typed Python (`Protocol`, `TypedDict`). No `Any`.
-  * **Flat Structure:** Logic flows are linear. Cognitive Complexity is strictly \< 8 per function.
+- **Type Safety:** 100% strictly typed Python (`Protocol`, `TypedDict`). No `Any`.
+- **Flat Structure:** Logic flows are linear. Cognitive Complexity is strictly \< 8 per function.
 
 ### 🧱 Pillar II: Modularity & DI
 
-  * **Dependency Injection:** The `PetstoreAgent` never instantiates its dependencies. We inject `CircuitBreakerProxy` and `ChaosProxy` at runtime , making the system 100% testable without mocking the universe.
+- **Dependency Injection:** The `PetstoreAgent` never instantiates its dependencies. We inject `CircuitBreakerProxy` and `ChaosProxy` at runtime , making the system 100% testable without mocking the universe.
 
 ### 🔧 Pillar III: SRE & Reliability
 
-  * **Circuit Breakers:** Implemented in `core/resilience.py`. Opens after 3 failures to protect downstream services .
-  * **Jittered Backoff:** Retries utilize randomized jitter to prevent "thundering herd" attacks on APIs .
+- **Circuit Breakers:** Implemented in `core/resilience.py`. Opens after 3 failures to protect downstream services .
+- **Jittered Backoff:** Retries utilize randomized jitter to prevent "thundering herd" attacks on APIs .
 
------
+---
 
 ## 🗺️ Roadmap: From Lab to Auto-Evolution
 
 We are currently at **Phase 6 (Validated)**. Here is where we are going:
 
-| Phase | Goal | Key Innovation | Status |
-| :--- | :--- | :--- | :--- |
-| **Phase 5** | **Evidence Base** | **"Parametric Testing"** (1000 runs) | ✅ **Done** |
-| **Phase 6** | **Reasoning** | **"Google Gemini 2.5"** Flash Lite Integration and **"Real Comparison Test"** | ✅ **Done** |
-| **Phase 7** | **Production** | **"Cloud Run + Real APIs"** (Stripe/Google) | 🚀 Posible evolution |
-| **Phase 8** | **Evolution** | **"Playbook As A Software"**, playbook lifecycle until production | 🚀 Posible evolution |
-| **Phase 8** | **Evolution** | **"Triple-Agent Comparison Lab"**, training in an adversay way | 🚀 Posible evolution |
-| **Phase 9** | **Evolution** | **"Agent Judge"**: Auto-writes Playbooks from production observability| 🚀 Posible evolution |
-| **Phase 10** | **Evolution** | **"Prompt Engineering Playbooks for Agents"**, an engine to test prompts with same philosophy | 🚀 Posible evolution |
+| Phase        | Goal              | Key Innovation                                                                                | Status               |
+| :----------- | :---------------- | :-------------------------------------------------------------------------------------------- | :------------------- |
+| **Phase 5**  | **Evidence Base** | **"Parametric Testing"** (1000 runs)                                                          | ✅ **Done**          |
+| **Phase 6**  | **Reasoning**     | **"Google Gemini 2.5"** Flash Lite Integration and **"Real Comparison Test"**                 | ✅ **Done**          |
+| **Phase 7**  | **Production**    | **"Cloud Run + Real APIs"** (Stripe/Google)                                                   | 🚀 Posible evolution |
+| **Phase 8**  | **Evolution**     | **"Playbook As A Software"**, playbook lifecycle until production                             | 🚀 Posible evolution |
+| **Phase 8**  | **Evolution**     | **"Triple-Agent Comparison Lab"**, training in an adversay way                                | 🚀 Posible evolution |
+| **Phase 9**  | **Evolution**     | **"Agent Judge"**: Auto-writes Playbooks from production observability                        | 🚀 Posible evolution |
+| **Phase 10** | **Evolution**     | **"Prompt Engineering Playbooks for Agents"**, an engine to test prompts with same philosophy | 🚀 Posible evolution |
 
------
+---
 
 ## 🏆 Why We Win
 
 1.  **We have the Data:** Not a demo; a scientific study with **14,000 data points**.
 2.  **We have the Code:** Enterprise-grade architecture compliant with **Google ADK** and **Quality Standards**.
 3.  **We have the Vision:** We aren't just handling errors; we are automating the creation of resilient software. <BR>
+
 - Chaos Playbook strategy of procedural RAG can be applied for **"A2A integration"**<BR>
 - Test agents with diferents **"prompts enabling evaluation"**
 - Deploy **"Procedural RAG As A Software"** to enhancement production agents without stop the agent in runtime, adding tested new procedures in live mode
-<BR><BR>
+  <BR><BR>
+
 ```
 Chaos Playbook Engine. Built using Google Agent Development Kit.
+```
