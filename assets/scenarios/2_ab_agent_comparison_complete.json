@@ -12,7 +12,8 @@
         "--failure-rates", "0.0", "0.01", "0.03", "0.05", "0.10", "0.15", "0.20",
         "--experiments-per-rate", "20",
         "--seed", "42",
-        "--verbose"
+        "--verbose",
+        "--mock-mode"
       ]
     },
     {

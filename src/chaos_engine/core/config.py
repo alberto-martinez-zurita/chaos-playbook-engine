@@ -102,8 +102,6 @@ class ConfigLoader:
         mock_mode_env = os.getenv("MOCK_MODE", "false").lower()
         config['mock_mode'] = mock_mode_env in ("true", "1", "yes")
         
-        print(f"   ⚙️  Mock Mode: {config['mock_mode']}")
-
         return config
     
     def _validate_config(self, config: Dict[str, Any]):
