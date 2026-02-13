@@ -35,7 +35,8 @@ async def run_experiment_safe(
     failure_rate: float,
     seed: int,
     verbose: bool,
-    logger
+    logger,
+    mock_mode: bool
 ) -> Dict:
     """Run single LLM experiment with FRESH agent instance via Dependency Injection."""
     import time
@@ -48,7 +49,10 @@ async def run_experiment_safe(
     # 2. INYECCIÓN CRÍTICA: Crear las dependencias
     # A. Crear el Proxy BASE (el que realmente simula el caos)
     chaos_proxy_instance = ChaosProxy(
-        failure_rate=failure_rate, seed=seed, mock_mode=config.get('mock_mode', True), verbose=verbose
+        failure_rate=failure_rate, 
+        seed=seed, 
+        mock_mode=mock_mode, 
+        verbose=verbose
     )
 
     # ✅ B. INYECTAR EL CIRCUIT BREAKER ALREDEDOR DEL PROXY (Pilar IV)
@@ -133,7 +137,7 @@ def save_phase5_format(experiments: List[Dict], output_dir: Path, agent_labels: 
             else: atype = "unknown"
 
             writer.writerow({
-                "experiment_id": f"{atype.upper()}-{exp['seed']}",
+                "experiment_id": exp['experiment_id'],
                 "agent_type": atype,
                 "outcome": exp["outcome"],
                 "duration_s": round(exp["duration_ms"] / 1000, 2),
@@ -212,15 +216,21 @@ async def run_comparison(args) -> bool:
         logger.info(f"  👉 Agent A ({args.agent_a_label})...")
         for i in range(args.experiments_per_rate):
             seed = base_seed + i
-            
-            # DI: Create Executor and Agent
-            executor_instance = ChaosProxy(failure_rate=rate, seed=seed, mock_mode=config.get('mock_mode', False), verbose=args.verbose)
-            agent_a_instance = PetstoreAgent(
-                playbook_path=Path(args.playbook_a), tool_executor=executor_instance,
-                llm_client_constructor=Gemini, model_name=model_name, verbose=args.verbose
+
+
+            # Llamada directa a la función de ejecución segura que maneja la DI correctamente
+
+            res = await run_experiment_safe(
+                experiment_id=f"A-{rate:.2f}-{i+1:03d}",
+                playbook_path=args.playbook_a,
+                agent_label=args.agent_a_label,
+                failure_rate=rate,
+                seed=seed,
+                verbose=args.verbose,
+                logger=logger,
+                mock_mode=args.mock_mode
             )
-            
-            res = await run_experiment_safe(f"A-{rate:.2f}-{i+1:03d}", args.playbook_a, args.agent_a_label, rate, seed, args.verbose, logger)
+
             all_results.append(res)
             
             if args.verbose: print(f"    Run {i+1}: {'✅' if res['outcome']=='success' else '❌'}")
@@ -233,14 +243,16 @@ async def run_comparison(args) -> bool:
         for i in range(args.experiments_per_rate):
             seed = base_seed + i
             
-            # DI: Create Executor and Agent
-            executor_instance = ChaosProxy(failure_rate=rate, seed=seed, mock_mode=config.get('mock_mode', False), verbose=args.verbose)
-            agent_b_instance = PetstoreAgent(
-                playbook_path=Path(args.playbook_b), tool_executor=executor_instance,
-                llm_client_constructor=Gemini, model_name=model_name, verbose=args.verbose
+            res = await run_experiment_safe(
+                experiment_id=f"B-{rate:.2f}-{i+1:03d}",
+                playbook_path=args.playbook_b,
+                agent_label=args.agent_b_label,
+                failure_rate=rate,
+                seed=seed,
+                verbose=args.verbose,
+                logger=logger,
+                mock_mode=args.mock_mode
             )
-            
-            res = await run_experiment_safe(f"B-{rate:.2f}-{i+1:03d}", args.playbook_b, args.agent_b_label, rate, seed, args.verbose, logger)
             all_results.append(res)
             
             if args.verbose: print(f"    Run {i+1}: {'✅' if res['outcome']=='success' else '❌'}")
@@ -268,6 +280,7 @@ def parse_args():
     parser.add_argument("--experiments-per-rate", type=int, default=5)
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("--mock-mode", action="store_true", help="Run the experiment in mock mode, skipping real network calls.")
     return parser.parse_args()
 
 if __name__ == "__main__":
