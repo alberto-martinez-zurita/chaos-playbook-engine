@@ -1,152 +1,126 @@
-from google.adk.agents import LlmAgent, LoopAgent
+from google.adk.agents import LlmAgent
 from google.adk.models.google_llm import Gemini
-from google.adk.runners import InMemoryRunner
-import os
-import httpx
-import random
-import json
-from pathlib import Path
-import asyncio
-from typing import Any, Dict, Optional, List
-from google.adk.models.google_llm import Gemini
-from google.genai import types 
-from chaos_engine.chaos.proxy import ChaosProxy
-from chaos_engine.core.playbook_storage import PlaybookStorage
-from dotenv import load_dotenv
+from google.genai import types
+from ..tools import petstore_tools, playbook_tools
 
-load_dotenv()
+class OrderAgentToolKit:
+    """A class to encapsulate the tools and their dependencies for the OrderAgent."""
+    def __init__(self, chaos_proxy, playbook_storage):
+        self.chaos_proxy = chaos_proxy
+        self.playbook_storage = playbook_storage
 
-chaos_proxy = ChaosProxy(failure_rate=0.1, seed=42, mock_mode=True)
- 
-# Load previous playbook to resume
-playbook_storage = PlaybookStorage("data/playbook_training.json")
+    async def get_inventory(self) -> dict:
+        return await petstore_tools.get_inventory(self.chaos_proxy)
 
-#define the opration to get playbooks and addend a new case used during the training.
-def get_playbook():
-    return playbook.get_all()
+    async def find_pets_by_status(self, status: str = "available") -> dict:
+        return await petstore_tools.find_pets_by_status(self.chaos_proxy, status)
 
-# Tool 1: GET /store/inventory
-async def get_inventory() -> dict:
-    """Returns a map of status codes to quantities from the store."""
-    return await chaos_proxy.send_request("GET", "/store/inventory")
- 
-# Tool 2: GET /pet/findByStatus
-async def find_pets_by_status(status: str = "available") -> dict:
-    """Finds Pets by status.
-   
+    async def place_order(self, pet_id: int, quantity: int) -> dict:
+        return await petstore_tools.place_order(self.chaos_proxy, pet_id, quantity)
+
+    async def update_pet_status(self, pet_id: int, name: str, status: str) -> dict:
+        return await petstore_tools.update_pet_status(self.chaos_proxy, pet_id, name, status)
+
+    async def get_playbook(self) -> dict:
+        return playbook_tools.get_playbook(self.playbook_storage)
+
+def create_order_agent(model, chaos_proxy, playbook_storage) -> LlmAgent:
+    """
+    Factory function to create the OrderAgent.
+
     Args:
-        status: Status values that need to be considered for filter (available, pending, sold).
+        model: The LLM model instance to use.
+        chaos_proxy: The proxy for simulating API failures.
+        playbook_storage: The storage handler for reading/writing playbook entries.
+
+    Returns:
+        An initialized LlmAgent instance for the OrderAgent.
     """
-    return await chaos_proxy.send_request("GET", "/pet/findByStatus", params={"status": status})
- 
-# Tool 3: POST /store/order
-async def place_order(pet_id: int, quantity: int) -> dict:
-    """Place an order for a pet.
-   
-    Args:
-        pet_id: ID of the pet that needs to be ordered.
-        quantity: Quantity of the pet to order.
-    """
-    body = {
-        "petId": pet_id,
-        "quantity": quantity,
-        "status": "placed",
-        "complete": False
-    }
-    return await chaos_proxy.send_request("POST", "/store/order", json_body=body)
- 
-# Tool 4: PUT /pet (Update an existing pet)
-async def update_pet_status(pet_id: int, name: str, status: str) -> dict:
-    """Update an existing pet status.
-   
-    Args:
-        pet_id: ID of the pet.
-        name: Name of the pet (required by API).
-        status: New status (available, pending, sold).
-    """
-    body = {
-        "id": pet_id,
-        "name": name,
-        "status": status,
-        "photoUrls": [] # Required by schema
-    }
-    return await chaos_proxy.send_request("PUT", "/pet", json_body=body)
- 
-async def wait_seconds(seconds: float) -> dict:
-    """Pauses execution for a specified number of seconds.
-   
-    Use this when a playbook strategy recommends waiting or backing off
-    before retrying an operation.
-    """
-    print(f"⏳ AGENT WAITING: {seconds}s (Executing Backoff Strategy)...")
-    await asyncio.sleep(seconds)
-    return {"status": "success", "message": f"Waited {seconds} seconds"}
+    toolkit = OrderAgentToolKit(chaos_proxy, playbook_storage)
 
-agent=root_agennt= LlmAgent(
-    name="OrderAgent", 
-    model=Gemini(
-        model="gemini-2.5-flash-lite",
-        retry_options=types.HttpRetryOptions(
-            attempts=5,
-            exp_base=7,
-            initial_delay=1,
-            http_status_codes=[429, 500, 503, 504],
-        )
-    ),
-    instruction="""
-You are the ORDER AGENT.
+    tools = [
+        toolkit.get_inventory,
+        toolkit.find_pets_by_status,
+        toolkit.place_order,
+        toolkit.update_pet_status,
+        petstore_tools.wait_seconds,  # This tool has no dependencies
+        toolkit.get_playbook
+    ]
 
-Your mission is to reliably complete the pet purchase process using the available tools and the recovery playbook.
-
-==========================
-PRIMARY OBJECTIVE
-==========================
-Execute the PURCHASE FLOW in this exact order unless the playbook instructs otherwise:
-
-1. Retrieve the inventory → (get_inventory)
-2. Search for available pets → (find_pets_by_status)
-   - Select EXACTLY ONE valid pet ID returned by the tool.
-3. Purchase the selected pet → (place_order)
-4. Mark the pet as sold → (update_pet_status)
-
-The purchase is successful only when all four steps complete correctly.
-
-==========================
-FAILURE & RECOVERY PROTOCOL
-==========================
-If ANY tool call fails (HTTP error, timeout, null/invalid data, malformed response):
-
-1. Immediately call → get_playbook
-2. When the playbook returns a strategy:
-   - Do NOT ask the user.
-   - Execute the strategy exactly as provided.
-   - If the strategy instructs a retry, perform that retry.
-   - If the strategy instructs waiting, call wait_seconds with the provided duration.
-   - If the strategy instructs skipping or altering steps, follow it exactly.
-   - If the strategy is "escalate_to_human", stop execution and return a message explaining that human intervention is required.
-
-==========================
-EXECUTION RULES
-==========================
-- Respect the purchase flow strictly unless the playbook overrides it.
-- Never invent or assume data not returned by tools.
-- Never select a pet ID that is not present in the tool result.
-- The selected pet ID must remain the same for the entire flow.
-- After a failure, never proceed until the playbook instructs you how.
-- If the playbook loops or gives conflicting instructions, escalate to human.
-
-==========================
-FINAL OUTPUT REQUIREMENTS
-==========================
-At the end, return a simple JSON summary with:
-
-{
-  "selected_pet_id": <id or null>,
-  "completed": true|false,
-  "error": <null or string>
-}
-
-If escalation occurs, set "completed" to false and include a human-readable explanation in "error".
-    """,
-    tools=[get_inventory, find_pets_by_status, place_order, update_pet_status, wait_seconds, get_playbook]
-)
+    return LlmAgent(
+        name="OrderAgent",
+        model=model,
+        instruction="""
+            You are the ORDER AGENT.  
+            Your mission is to complete the pet purchase process reliably, even under failures and API instability.
+    
+            ==========================
+            PRIMARY OBJECTIVE
+            ==========================
+            Complete the PURCHASE FLOW:
+    
+            1. Check the inventory → (get_inventory)
+            2. Look for an available pet → (find_pets_by_status)
+               - Must select ONE valid pet ID from the results.
+            3. Purchase that pet → (place_order)
+            4. Mark the pet as sold → (update_pet_status)
+    
+            If all four steps succeed, the purchase is complete.
+    
+            ==========================
+            MANDATORY REPORTING FORMAT
+            ==========================
+            For EVERY tool call you make, you MUST produce a structured log entry in this format:
+    
+            [STEP <n>]
+            TOOL: <tool_name>
+            PARAMS: <json>
+            RESULT: <raw tool output | raw error>
+            STRATEGY_DECISION: <what you decided and why>
+    
+            At the end, produce a final section:
+    
+            [FINAL_STATE]
+            {
+            "selected_pet_id": <id or null>,
+            "retry_counters": { "<tool>": <number> },
+            "last_error": <string or null>,
+            "completed": true|false
+            }
+    
+            ==========================
+            STATE REQUIREMENTS
+            ==========================
+            You MUST track:
+    
+            - selected_pet_id
+            - retry counters per tool
+            - last_error
+            - last_playbook_strategy
+    
+            Include these in the final output (steps_performed).
+    
+            ==========================
+            FAILURE PROTOCOL (CRITICAL)
+            ==========================
+            If a tool call fails in ANY way (HTTP error, timeout, malformed response, null data):
+    
+            1. IMMEDIATELY call get_playbook
+            2. When the playbook responds with a strategy:
+                - DO NOT ask the user.
+                - EXECUTE THE STRATEGY IMMEDIATELY.
+    
+    
+            ==========================
+            GENERAL RULES
+            ==========================
+            - Always follow the purchase flow strictly in order.
+            - Never select a pet ID that does not appear in the results.
+            - Never skip a failing step unless the playbook explicitly instructs it.
+            - Never hallucinate successful results.
+            - Your success metric is FINISHING THE PURCHASE UNASSISTED despite failures.
+            - In case the strategy suggested is escalate_to_human, you have to stop the execution and return a message to let the human complete or correct the order procedure
+        """,
+        output_key="steps_performed",
+        tools=tools
+    )
