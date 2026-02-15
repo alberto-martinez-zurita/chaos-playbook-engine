@@ -88,9 +88,14 @@ poetry run python cli/run_comparison.py \
   --experiments-per-rate 25 \
   --verbose
 
-  ##TODO: update parameters used by the script
 
-#In case of import problem prepend PYTHONPATH=$(pwd)/src to poetry command.
+#Train Agent and create a Playbook
+poetry run python cli/run_training.py \
+  --failure-rates 0.6 \
+  --max-iterations 10 \
+  --playbook-path data/playbook_training.json \
+  --seed 42 \
+  --mock-mode
 
 
 ```

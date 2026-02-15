@@ -134,7 +134,13 @@ def create_order_agent(model, chaos_proxy, playbook_storage) -> LlmAgent:
 config = load_config()
 model_name = get_model_name(config)
 agent = create_order_agent(
-    model=Gemini(model=model_name),
+    model=Gemini( model=model_name,
+        retry_options=types.HttpRetryOptions(
+            attempts=5,
+            exp_base=7,
+            initial_delay=1,
+            http_status_codes=[429, 500, 503, 504],
+    )),
     chaos_proxy=None,  # Will be injected by the evaluator
     playbook_storage=None,  # Will be injected by the evaluator
 )

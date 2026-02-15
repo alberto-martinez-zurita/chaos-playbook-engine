@@ -2,37 +2,58 @@ import pytest
 from unittest.mock import AsyncMock, patch
 from google.adk.evaluation.agent_evaluator import AgentEvaluator
 from dotenv import load_dotenv
-import sys
-import os
 
 load_dotenv()
 
-@pytest.mark.asyncio
-@patch('src.chaos_engine.chaos.proxy.ChaosProxy.send_request')
-async def test_agent_evaluation(mock_send_request):
-    """Mock ChaosProxy.send_request → 100% success"""
-    
-    async def mock_success(*args, **kwargs):
-        endpoint = args[1] if len(args) > 1 else ""
-        
-        
-        if "inventory" in endpoint:
-            return {"status": "success", "code": 200, "data": {"pets": [{"id": 12345, "name": "Fluffy", "status": "available"}]}}
-        elif "findByStatus" in endpoint:
-            return {"status": "success", "code": 200, "data": [{"id": 12345, "name": "Fluffy", "status": "available"}]}
-        elif "order" in endpoint:
-            return {"status": "success", "code": 200, "data": {"id": "abc123", "status": "placed"}}
-        elif "/pet" in endpoint:
-            return {"status": "success", "code": 200, "data": {"id": 12345, "status": "sold"}}
-        return {"status": "success", "code": 200, "data": {}}
-    
-  
-    mock_send_request.side_effect = mock_success
 
+@pytest.mark.asyncio
+@patch("src.chaos_engine.agents.order_agent.OrderAgentToolKit.get_playbook", new_callable=AsyncMock)
+@patch("src.chaos_engine.agents.order_agent.OrderAgentToolKit.update_pet_status", new_callable=AsyncMock)
+@patch("src.chaos_engine.agents.order_agent.OrderAgentToolKit.place_order", new_callable=AsyncMock)
+@patch("src.chaos_engine.agents.order_agent.OrderAgentToolKit.find_pets_by_status", new_callable=AsyncMock)
+@patch("src.chaos_engine.agents.order_agent.OrderAgentToolKit.get_inventory", new_callable=AsyncMock)
+async def test_agent_evaluation(
+    mock_get_inventory,
+    mock_find_pets,
+    mock_place_order,
+    mock_update_pet_status,
+    mock_get_playbook,
+):
+    """
+    Mock toolkit methods directly → clean 100% success path
+    """
+
+    # --- success mocks ---
+    mock_get_inventory.return_value = {
+        "status": "success",
+        "code": 200,
+        "data": {"pets": [{"id": 1, "name": "Fluffy", "status": "available"}]},
+    }
+
+    mock_find_pets.return_value = {
+        "status": "success",
+        "code": 200,
+        "data": [{"id": 1, "name": "Fluffy", "status": "available"}],
+    }
+
+    mock_place_order.return_value = {
+        "status": "success",
+        "code": 200,
+        "data": {"id": "abc123", "status": "placed"},
+    }
+
+    mock_update_pet_status.return_value = {
+        "status": "success",
+        "code": 200,
+        "data": {"id": 1, "status": "sold"},
+    }
+
+    mock_get_playbook.return_value = {
+        "strategy": "retry"
+    }
+
+    # --- run evaluation ---
     result = await AgentEvaluator.evaluate(
-        agent_module="src.chaos_engine.agents.order_agent", 
-        eval_dataset_file_path_or_dir="tests/integration/test_cases.json"
+        agent_module="src.chaos_engine.agents.order_agent",
+        eval_dataset_file_path_or_dir="tests/integration/test_cases.json",
     )
-    
-    
-   
