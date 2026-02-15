@@ -19,7 +19,7 @@ try:
     console = Console(force_terminal=True)
     HAS_RICH = True
 except ImportError:
-    HAS_RICH = False
+    HAS_RICH = False # type: ignore
 
 # Library to simulate keystrokes (Optional, for the preview trick)
 try:

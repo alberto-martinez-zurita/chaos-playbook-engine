@@ -1,21 +1,22 @@
 """
-Resilience Utilities - Circuit Breaker Implementation (Pilar IV).
+Resilience Utilities - Circuit Breaker Implementation.
 """
 import time
 import logging
 from typing import Dict, Any, Optional, Protocol, runtime_checkable
 
-# Reutilizar el protocolo de ejecución de herramientas
+# Reuse the tool execution protocol.
 @runtime_checkable
 class Executor(Protocol):
     async def send_request(self, method: str, endpoint: str, params: Optional[Dict] = None, json_body: Optional[Dict] = None) -> Dict[str, Any]: ...
-    # Añadimos el método al protocolo para que mypy sea feliz (opcional pero buena práctica)
+    # Add the method to the protocol to satisfy mypy (optional but good practice).
     def calculate_jittered_backoff(self, seconds: float) -> float: ...
 
 class CircuitBreakerProxy:
     """
-    Implementa el patrón Circuit Breaker para proteger el servicio de destino.
-    Si el número de fallos consecutivos supera el umbral, el circuito se abre.
+    Implements the Circuit Breaker pattern to protect the downstream service.
+
+    If the number of consecutive failures exceeds the threshold, the circuit opens.
     """
     
     def __init__(self, wrapped_executor: Executor, failure_threshold: int = 5, cooldown_seconds: int = 60):
@@ -23,37 +24,36 @@ class CircuitBreakerProxy:
         self._failure_threshold = failure_threshold
         self._cooldown_seconds = cooldown_seconds
         
-        # Estado del circuito
+        # Circuit state
         self._failures = 0
         self._is_open = False
         self._opened_timestamp = 0
         self.logger = logging.getLogger("CircuitBreaker")
 
-    # 🔥 FIX: Implementar el método que faltaba y delegarlo al executor interno
     def calculate_jittered_backoff(self, seconds: float) -> float:
-        """Delega el cálculo de jitter al componente interno (ChaosProxy)."""
+        """Delegates the jitter calculation to the wrapped executor (e.g., ChaosProxy)."""
         if hasattr(self._executor, "calculate_jittered_backoff"):
             return self._executor.calculate_jittered_backoff(seconds)
-        # Fallback si el executor interno no tiene el método
+        # Fallback if the wrapped executor does not have the method.
         return seconds
 
     async def send_request(self, method: str, endpoint: str, params: Optional[Dict] = None, json_body: Optional[Dict] = None) -> Dict[str, Any]:
         
-        # 1. ESTADO ABIERTO (Protección)
+        # 1. OPEN STATE (Protection)
         if self._is_open:
             if time.time() < self._opened_timestamp + self._cooldown_seconds:
                 self.logger.warning(f"🚨 CIRCUIT OPEN: Request to {endpoint} blocked (Cooldown active).")
-                # Devolver un error de servicio inalcanzable inmediatamente (Pilar IV: MTTR bajo)
+                # Immediately return a service unavailable error to improve MTTR.
                 return {"status": "error", "code": 503, "message": "Circuit Breaker Open: Service is down."}
             else:
-                # Transición a estado de "Semi-abierto" (permitir 1 prueba)
+                # Transition to "Half-Open" state to allow one test request.
                 self._is_open = False
                 self.logger.info("🔧 CIRCUIT HALF-OPEN: Allowing one test request.")
         
-        # 2. Ejecución de la solicitud
+        # 2. Request Execution
         response = await self._executor.send_request(method, endpoint, params, json_body)
         
-        # 3. MANEJO DEL ESTADO
+        # 3. State Handling
         if response.get("status") == "error":
             self._handle_failure()
         else:

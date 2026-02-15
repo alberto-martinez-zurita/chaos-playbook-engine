@@ -46,14 +46,14 @@ async def train_agent(args):
     orderAgent = create_order_agent(model, chaos_proxy, playbook_storage)
     playbookCreatorAgent = create_playbook_creator_agent(model, chaos_proxy, playbook_storage)
 
-    # 4. Define the Training Loop
+    # 3. Define the Training Loop
     trainingAgent = LoopAgent(
         name="TrainingLoop",
         sub_agents=[orderAgent, playbookCreatorAgent],
         max_iterations=args.max_iterations,
     )
 
-    # 5. Run the training
+    # 4. Run the training
     print(f"🚀 Starting training loop for {args.max_iterations} iterations...")
     runner = InMemoryRunner(agent=trainingAgent)
     await runner.run_debug("Purchase an available pet.")

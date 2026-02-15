@@ -8,7 +8,7 @@ import logging
 from typing import Dict, List, Any
 from dataclasses import dataclass, asdict
 
-# ✅ Nuevas importaciones para la Inyección de Dependencias
+# Imports for Dependency Injection
 from chaos_engine.agents.petstore import PetstoreAgent
 from chaos_engine.chaos.proxy import ChaosProxy
 from chaos_engine.core.resilience import CircuitBreakerProxy
@@ -31,15 +31,14 @@ class EvaluationRunner:
         self.logger = logging.getLogger("evaluator")
         self.playbook_path = agent_playbook
         
-        # 1. Cargar Configuración General
+        # 1. Load General Configuration
         self.config = load_config()
         self.model_name = get_model_name(self.config)
         
-        # 🔥 FIX: Leer mock_mode de la configuración global
+        # Read mock_mode from the global configuration
         self.mock_mode = self.config.get("mock_mode", False)
         
-        # 2. Inicializar dependencias por defecto
-        # 🔥 FIX: Pasar mock_mode aquí
+        # 2. Initialize default dependencies
         self.current_proxy = ChaosProxy(
             failure_rate=0.0, 
             seed=42, 
@@ -48,7 +47,7 @@ class EvaluationRunner:
         )
         self.circuit_breaker = CircuitBreakerProxy(wrapped_executor=self.current_proxy)
 
-        # 3. Inyectar dependencias al Agente
+        # 3. Inject dependencies into the Agent
         self.agent = PetstoreAgent(
             playbook_path=agent_playbook,
             tool_executor=self.circuit_breaker,
@@ -58,7 +57,7 @@ class EvaluationRunner:
         )
 
     async def run_suite(self, suite_path: str) -> List[TestResult]:
-        """Ejecuta una suite completa de tests definida en JSON."""
+        """Runs a full test suite defined in a JSON file."""
         
         with open(suite_path, 'r', encoding='utf-8') as f:
             suite = json.load(f)
@@ -81,21 +80,21 @@ class EvaluationRunner:
         start_time = time.time()
         chaos_config = case['chaos_config']
         
-        # 🔥 ACTUALIZACIÓN DINÁMICA DE DEPENDENCIAS
-        # Aseguramos que el proxy del test también respete el mock_mode
+        # Dynamically update dependencies for the test case.
+        # Ensure the test's proxy also respects the global mock_mode.
         test_proxy = ChaosProxy(
             failure_rate=chaos_config['rate'],
             seed=chaos_config['seed'],
             verbose=True,
-            mock_mode=self.mock_mode # <--- ¡Importante!
+            mock_mode=self.mock_mode
         )
         
         test_executor = CircuitBreakerProxy(wrapped_executor=test_proxy)
         
-        # Intercambiamos el executor del agente "en caliente"
+        # Hot-swap the agent's executor for this specific case.
         self.agent.executor = test_executor
         
-        # Ejecución
+        # Execute the agent's order processing.
         try:
             output = await self.agent.process_order(
                 order_id=case['input'],
@@ -114,7 +113,7 @@ class EvaluationRunner:
         duration = time.time() - start_time
         expected = case['expected']
         
-        # --- Lógica de Aserciones ---
+        # --- Assertion Logic ---
         if output['status'] != expected['status']:
             return TestResult(case['id'], False, f"Status mismatch: Got {output['status']}, expected {expected['status']}", duration, output)
             

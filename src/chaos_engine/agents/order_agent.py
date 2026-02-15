@@ -130,6 +130,7 @@ def create_order_agent(model, chaos_proxy, playbook_storage) -> LlmAgent:
 # We create a default instance here. The evaluator will handle dependency
 # injection for the arguments during the evaluation process.
 
+# 1. Load Configuration
 config = load_config()
 model_name = get_model_name(config)
 agent = create_order_agent(
