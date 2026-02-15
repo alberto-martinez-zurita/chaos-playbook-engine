@@ -20,16 +20,19 @@ from chaos_engine.core.playbook_storage import PlaybookStorage
 from chaos_engine.tools import playbook_tools, petstore_tools
 from chaos_engine.agents.order_agent import create_order_agent
 from chaos_engine.agents.playbook_creator_agent import create_playbook_creator_agent
+from chaos_engine.core.config import load_config, get_model_name
 
-load_dotenv() # TODO: Move to main CLI entry point
+load_dotenv() 
 
 async def train_agent(args):
     # 1. Setup Dependencies
     print(f"🔧 Initializing training with Failure Rate: {args.failure_rate}, Seed: {args.seed}")
+    config = load_config()
+    model_name = get_model_name(config)
     chaos_proxy = ChaosProxy(failure_rate=args.failure_rate, mock_mode=args.mock_mode, seed=args.seed)
     playbook_storage = PlaybookStorage(args.playbook_path)
     model = Gemini(
-        model="gemini-2.5-flash-lite",
+        model=model_name,
         retry_options=types.HttpRetryOptions(
             attempts=5,
             exp_base=7,

@@ -1,6 +1,7 @@
 from google.adk.agents import LlmAgent
 from google.adk.models.google_llm import Gemini
 from google.genai import types
+from ..core.config import load_config, get_model_name
 from ..tools import petstore_tools, playbook_tools
 
 class OrderAgentToolKit:
@@ -124,3 +125,15 @@ def create_order_agent(model, chaos_proxy, playbook_storage) -> LlmAgent:
         output_key="steps_performed",
         tools=tools
     )
+
+# The ADK's AgentEvaluator expects to find a top-level variable named `agent`.
+# We create a default instance here. The evaluator will handle dependency
+# injection for the arguments during the evaluation process.
+
+config = load_config()
+model_name = get_model_name(config)
+agent = create_order_agent(
+    model=Gemini(model=model_name),
+    chaos_proxy=None,  # Will be injected by the evaluator
+    playbook_storage=None,  # Will be injected by the evaluator
+)

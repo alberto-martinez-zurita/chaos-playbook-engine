@@ -7,9 +7,8 @@ import os
 
 load_dotenv()
 
-# CAMBIO 1: La ruta del patch ahora incluye 'chaos_engine'
 @pytest.mark.asyncio
-@patch('src.chaos_engine.agents.order_agent.chaos_proxy.send_request')
+@patch('src.chaos_engine.chaos.proxy.ChaosProxy.send_request')
 async def test_agent_evaluation(mock_send_request):
     """Mock ChaosProxy.send_request → 100% success"""
     
