@@ -1,6 +1,6 @@
 """
 Chaos Proxy - Middleware for Chaos Injection.
-Updated for New Architecture (assets/knowledge_base).
+
 """
 import random
 import httpx
@@ -56,13 +56,7 @@ class ChaosProxy:
         return jittered_delay
 
     async def send_request(self, method: str, endpoint: str, params: dict = None, json_body: dict = None) -> Dict[str, Any]:
-        """
-        Proxy inteligente: 
-        1. Decide si inyectar caos.
-        2. Aplica Zero-Trust (Validación).
-        3. Llama a la API real.
-        """
-        
+ 
         # Zero-Trust: Basic schema validation
         if json_body and not isinstance(json_body.get('id'), int) and 'id' in json_body:
              self.logger.error("❌ SECURITY: Invalid schema detected (ID is not an integer).")

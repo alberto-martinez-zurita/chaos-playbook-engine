@@ -43,12 +43,13 @@ async def update_pet_status(chaos_proxy, pet_id: int, name: str, status: str) ->
     }
     return await chaos_proxy.send_request("PUT", "/pet", json_body=body)
 
-async def wait_seconds(seconds: float) -> dict:
+async def wait_seconds(chaos_proxy,seconds: float) -> dict:
     """Pauses execution for a specified number of seconds.
    
     Use this when a playbook strategy recommends waiting or backing off
     before retrying an operation.
     """
-    print(f"⏳ AGENT WAITING: {seconds}s (Executing Backoff Strategy)...")
-    await asyncio.sleep(seconds)
+    jittered_seconds=chaos_proxy.calculate_jittered_backoff(seconds)
+    print(f"⏳ AGENT WAITING: {jittered_seconds}s (Executing Backoff Strategy)...")
+    await asyncio.sleep(jittered_seconds)
     return {"status": "success", "message": f"Waited {seconds} seconds"}

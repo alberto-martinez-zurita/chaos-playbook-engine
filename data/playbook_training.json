@@ -1,3 +1,28 @@
 {
-  "procedures": []
+  "procedures": [
+    {
+      "id": "PROC-001",
+      "failure_type": "get_inventory_error",
+      "api": "get_inventory",
+      "recovery_strategy": "retry once with wait 5 seconds",
+      "success_rate": 1.0,
+      "created_at": "2026-02-19T20:14:58.249519Z",
+      "metadata": {
+        "wait_seconds": 0,
+        "max_retries": 1
+      }
+    },
+    {
+      "id": "PROC-002",
+      "failure_type": "find_pets_by_status_error",
+      "api": "find_pets_by_status",
+      "recovery_strategy": "retry once with wait 5 seconds",
+      "success_rate": 1.0,
+      "created_at": "2026-02-19T20:14:58.260582Z",
+      "metadata": {
+        "wait_seconds": 0,
+        "max_retries": 1
+      }
+    }
+  ]
 }
