@@ -114,6 +114,20 @@ open reports/parametric_experiments/run_*/dashboard.html
 
 ---
 
+### 4\. Evaluate Order Agent
+
+A special instance of OrderAgent is configured to be evaluated using ADK Evaluation Framework
+The idea behind the test is that the agent uses a mocked version of the api that always return the same results.
+In this way is posible to execute the test and check that the agent has a deterministic behavior in a controlled scenario
+
+```bash
+# Run evaluation test
+pytest tests/integration/test_order_agent.py
+
+```
+
+---
+
 ## 🏗️ Architecture: Hybrid Deterministic + Probabilistic
 
 We solve the "Hallucination vs. Reliability" dilemma by decoupling **Reasoning** (LLM) from **Recovery** (Playbook).
