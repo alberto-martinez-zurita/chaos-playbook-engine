@@ -1,46 +1,38 @@
 """
 Chaos Playbook Storage Module.
 
-Provides JSON-based storage for chaos recovery procedures.
+Provides JSON-based storage for chaos recovery strategy matrix.
 Thread-safe operations with asyncio.Lock.
-
-Location: src/chaos_playbook_engine/data/playbook_storage.py
 """
 
 import asyncio
 import json
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 
 class PlaybookStorage:
     """
-    JSON-based storage for chaos recovery procedures.
+    JSON-based storage for chaos recovery strategy matrix.
 
     Schema:
     {
-        "procedures": [
-            {
-                "id": "PROC-001",
-                "failure_type": "timeout",
-                "api": "inventory",
-                "recovery_strategy": "retry 3x with exponential backoff",
-                "success_rate": 0.85,
-                "created_at": "2025-11-22T15:00:00Z",
-                "metadata": {...}
+        "get_inventory": {
+            "500": {
+                "strategy": "retry_exponential_backoff",
+                "reasoning": "Server error",
+                "config": {"base_delay": 1.0, "max_retries": 3}
             }
-        ]
+        },
+        "default": {
+            "strategy": "escalate_to_human",
+            "reasoning": "Unknown scenario",
+            "config": {}
+        }
     }
     """
 
     def __init__(self, file_path: str = "data/chaos_playbook.json"):
-        """
-        Initialize storage with file path.
-        
-        Args:
-            file_path: Path to JSON storage file
-        """
         self.file_path = Path(file_path)
         self._lock = asyncio.Lock()
         self._ensure_storage_exists()
@@ -49,108 +41,114 @@ class PlaybookStorage:
         """Ensure data directory and file exist."""
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
         if not self.file_path.exists():
-            initial_data = {"procedures": []}
-            with open(self.file_path, 'w') as f:
-                json.dump(initial_data, f, indent=2)
+            with open(self.file_path, "w") as f:
+                json.dump({}, f, indent=2)
 
-    async def _read_playbook(self) -> Dict[str, Any]:
-        """Read playbook from disk (thread-safe)."""
+     
+    async def _read_playbook(self) -> dict:
         async with self._lock:
-            with open(self.file_path, 'r') as f:
-                return json.load(f)
+            if not self.file_path.exists() or self.file_path.stat().st_size == 0:
+            # initialize with empty matrix
+                return {}
+            try:
+                with open(self.file_path, 'r') as f:
+                    return json.load(f)
+            except json.JSONDecodeError:
+            # corrupted file? reset to empty matrix
+                return {}        
 
     async def _write_playbook(self, data: Dict[str, Any]):
-        """Write playbook to disk (thread-safe)."""
         async with self._lock:
-            with open(self.file_path, 'w') as f:
+            with open(self.file_path, "w") as f:
                 json.dump(data, f, indent=2)
 
-    def _generate_procedure_id(self, existing_procedures: List[Dict]) -> str:
-        """Generate unique procedure ID like 'PROC-001'."""
-        if not existing_procedures:
-            return "PROC-001"
-        max_num = 0
-        for proc in existing_procedures:
-            proc_id = proc.get("id", "PROC-000")
-            try:
-                num = int(proc_id.split("-")[1])
-                max_num = max(max_num, num)
-            except (IndexError, ValueError):
-                continue
-        return f"PROC-{max_num + 1:03d}"
+    # ---------------------------------------------------------
+    # Public API
+    # ---------------------------------------------------------
 
-    def _validate_inputs(
-        self,
-        failure_type: str,
-        api: str,
-        success_rate: float
-    ):
-        """Validate inputs. Only success_rate is restricted now."""
-        if not 0.0 <= success_rate <= 1.0:
-            raise ValueError(
-                f"Invalid success_rate: {success_rate}. Must be between 0.0 and 1.0"
-            )
+    async def load_playbook(self) -> Dict[str, Any]:
+        """Return full strategy matrix."""
+        return await self._read_playbook()
 
-    async def save_procedure(
-        self,
-        failure_type: str,
-        api: str,
-        recovery_strategy: str,
-        success_rate: float = 1.0,
-        metadata: Optional[Dict] = None
-    ) -> str:
-        """Save recovery procedure to Playbook."""
-        # Validate inputs
-        self._validate_inputs(failure_type, api, success_rate)
-
-        # Read current playbook
-        playbook = await self._read_playbook()
-        procedures = playbook.get("procedures", [])
-
-        # Generate unique ID
-        procedure_id = self._generate_procedure_id(procedures)
-
-        # Create procedure entry
-        procedure = {
-            "id": procedure_id,
-            "failure_type": failure_type,
-            "api": api,
-            "recovery_strategy": recovery_strategy,
-            "success_rate": success_rate,
-            "created_at": datetime.utcnow().isoformat() + "Z",
-            "metadata": metadata or {}
-        }
-
-        # Add to playbook
-        procedures.append(procedure)
-        playbook["procedures"] = procedures
-
-        # Write back to disk
+    async def save_playbook(self, playbook: Dict[str, Any]) -> None:
+        """Replace entire playbook."""
         await self._write_playbook(playbook)
 
-        return procedure_id
-
-    async def load_procedures(
+    async def add_or_update_strategy(
         self,
-        failure_type: Optional[str] = None,
-        api: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
-        """Load procedures from Playbook with optional filtering."""
+        api: str,
+        status_code: str,
+        strategy: str,
+        reasoning: str = "",
+        config: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Add or update strategy rule for api + status_code."""
+
+        if config is None:
+            config = {}
+
         playbook = await self._read_playbook()
-        procedures = playbook.get("procedures", [])
-        if failure_type:
-            procedures = [p for p in procedures if p.get("failure_type") == failure_type]
-        if api:
-            procedures = [p for p in procedures if p.get("api") == api]
-        return procedures
 
-    async def get_best_procedure(
+        if api not in playbook:
+            playbook[api] = {}
+
+        playbook[api][str(status_code)] = {
+            "strategy": strategy,
+            "reasoning": reasoning,
+            "config": config
+        }
+
+        await self._write_playbook(playbook)
+
+    async def remove_strategy(
         self,
-        failure_type: str,
-        api: str
+        api: str,
+        status_code: str
+    ) -> None:
+        """Remove a strategy rule."""
+
+        playbook = await self._read_playbook()
+
+        if api in playbook and str(status_code) in playbook[api]:
+            del playbook[api][str(status_code)]
+
+        await self._write_playbook(playbook)
+
+    async def set_default_strategy(
+        self,
+        strategy: str,
+        reasoning: str = "",
+        config: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Set default fallback strategy."""
+
+        if config is None:
+            config = {}
+
+        playbook = await self._read_playbook()
+
+        playbook["default"] = {
+            "strategy": strategy,
+            "reasoning": reasoning,
+            "config": config
+        }
+
+        await self._write_playbook(playbook)
+
+    async def resolve_strategy(
+        self,
+        api: str,
+        status_code: str
     ) -> Optional[Dict[str, Any]]:
-        """Get best procedure (highest success_rate) for given failure_type and API."""
-        procedures = await self.load_procedures(failure_type=failure_type, api=api)
-        if not procedures:
-            return None
-        return max(procedures, key=lambda p: p.get("success_rate", 0.0))
+        """
+        Resolve strategy for given api + status_code.
+        Falls back to default if not found.
+        """
+
+        playbook = await self._read_playbook()
+
+        api_rules = playbook.get(api, {})
+        if str(status_code) in api_rules:
+            return api_rules[str(status_code)]
+
+        return playbook.get("default")
