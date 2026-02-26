@@ -64,10 +64,6 @@ pip install -r requirements.txt
 # Or install dependencies Poetry
 poetry install
 
-
-
-
-
 ```
 
 ### 2\. Run the Laboratory
@@ -84,10 +80,19 @@ poetry run python cli/run_simulation.py \
 
 # Run the Chaos Experiment
 poetry run python cli/run_comparison.py \
-  --failure-rates 0.0 0.1 0.2 0.3 \
+  --agent-a petstore_agent \
+  --playbook-a assets/playbooks/baseline.json \
+  --agent-b petstore_agent \
+  --playbook-b  assets/playbooks/training.json \
+  --failure-rates 0.0 0.01 0.03 0.05 0.10 0.15 0.20 \
   --experiments-per-rate 25 \
-  --verbose
+  --seed 42 \
+  --verbose \
+  --mock-mode
 
+# Run a Chaos Scenario
+poetry run python cli/run_scenario.py \
+  --config ./assets/scenarios/2_ab_agent_comparison_complete.json
 
 #Train Agent and create a Playbook
 poetry run python cli/run_training.py \
@@ -96,7 +101,6 @@ poetry run python cli/run_training.py \
   --playbook-path data/playbook_training.json \
   --seed 42 \
   --mock-mode
-
 
 ```
 
