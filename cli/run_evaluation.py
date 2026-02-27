@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from datetime import datetime
 
-# Setup path (si no instalado)
+# Setup path (if not installed)
 current_file = Path(__file__).resolve()
 project_root = current_file.parent.parent
 src_path = project_root / "src"
@@ -26,15 +26,15 @@ async def main():
     
     args = parser.parse_args()
     
-# 1. PREPARAR OBSERVABILIDAD
+    # 1. PREPARE OBSERVABILITY
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    # ✅ ESTO ES LO CORRECTO: Definir ruta anidada en 'reports'
+    # Define nested path in 'reports'
     output_dir = project_root / "reports" / "evaluations" / f"eval_{timestamp}"
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    # ✅ FIX: Pasar explícitamente log_dir=str(output_dir)
-    # Si falta este argumento, se va a /logs por defecto
+    # Explicitly pass log_dir=str(output_dir)
+    # If this argument is missing, it defaults to /logs
     logger = setup_logger("evaluation", verbose=args.verbose, log_dir=str(output_dir))
      
     logger.info("="*60)
@@ -42,18 +42,18 @@ async def main():
     logger.info(f"📁 Report Artifacts: {output_dir}")
     logger.info("="*60)
 
-    # Validar paths
+    # Validate paths
     suite_path = Path(args.suite)
     if not suite_path.exists(): suite_path = project_root / args.suite
     
     playbook_path = args.playbook
     if not Path(playbook_path).exists(): playbook_path = str(project_root / args.playbook)
 
-    # 2. EJECUTAR
+    # 2. EXECUTE
     runner = EvaluationRunner(agent_playbook=playbook_path)
     results = await runner.run_suite(str(suite_path))
     
-    # 3. GENERAR REPORTE JSON (Artefacto de Calidad)
+    # 3. GENERATE JSON REPORT (Quality Artifact)
     report = {
         "timestamp": timestamp,
         "suite": args.suite,

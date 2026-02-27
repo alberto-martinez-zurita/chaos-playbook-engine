@@ -3,6 +3,7 @@ run_comparison.py - Phase 6 Specialized LLM Testing Tool
 ==============================================================
 FINAL VERSION: Dependency Injection (DI) Implementation.
 Corrige el error de NameError en el bloque de excepción.
+Corrects the NameError in the exception block.
 """
 
 import sys
@@ -16,7 +17,7 @@ from typing import List, Dict, Optional, Type
 from collections import defaultdict
 from datetime import datetime
 
-# Importaciones del paquete
+# Package imports
 from chaos_engine.agents.petstore import PetstoreAgent, ToolExecutor, LLMClientConstructor
 from chaos_engine.chaos.proxy import ChaosProxy
 from chaos_engine.core.logging import setup_logger
@@ -42,12 +43,12 @@ async def run_experiment_safe(
     import time
     start_time = time.time()
     
-    # 1. CARGAR CONFIGURACIÓN
+    # 1. LOAD CONFIGURATION
     config = load_config()
     model_name = get_model_name(config)
     
-    # 2. INYECCIÓN CRÍTICA: Crear las dependencias
-    # A. Crear el Proxy BASE (el que realmente simula el caos)
+    # 2. CRITICAL INJECTION: Create dependencies
+    # A. Create the BASE Proxy (the one that actually simulates chaos)
     chaos_proxy_instance = ChaosProxy(
         failure_rate=failure_rate, 
         seed=seed, 
@@ -55,11 +56,11 @@ async def run_experiment_safe(
         verbose=verbose
     )
 
-    # ✅ B. INYECTAR EL CIRCUIT BREAKER ALREDEDOR DEL PROXY (Pilar IV)
+    # B. INJECT THE CIRCUIT BREAKER AROUND THE PROXY
     tool_executor_instance = CircuitBreakerProxy(
         wrapped_executor=chaos_proxy_instance,
-        failure_threshold=3, # Se abre si falla 3 veces
-        cooldown_seconds=30  # Espera 30 segundos
+        failure_threshold=3, # Opens if it fails 3 times
+        cooldown_seconds=30  # Waits for 30 seconds
     )
 
     # C. Agente: Le pasamos el Circuit Breaker como Executor
@@ -72,7 +73,7 @@ async def run_experiment_safe(
     )
     
     try:
-        # 3. Ejecución
+        # 3. Execution
         result = await agent.process_order(
             order_id=f"exp_{experiment_id}",
             failure_rate=failure_rate,
@@ -86,10 +87,10 @@ async def run_experiment_safe(
         logger.debug(f"  Exp {experiment_id}: Outcome={outcome}, Steps={steps}, Time={result['duration_ms']:.0f}ms")
         
     except Exception as e:
-        # ✅ FIX RESTAURADO: Inicializar 'steps' para evitar NameError
+        # Initialize 'steps' to avoid NameError
         logger.error(f"  🔥 CRASH {experiment_id}: {str(e)[:100]}...")
         outcome = "failure"
-        steps = 0 # ⬅️ RESTAURADO: Cláusula de guardia para el retorno.
+        steps = 0 # Guard clause for the return
         failed_at = "runner_crash"
         
         if "429" in str(e) or "quota" in str(e).lower():
@@ -109,8 +110,6 @@ async def run_experiment_safe(
         "duration_ms": round(duration_ms, 2)
     }
 
-# ================================
-# DATA SAVING (No hay cambios en la lógica de guardado)
 # ...
 # ================================
 
@@ -218,8 +217,7 @@ async def run_comparison(args) -> bool:
             seed = base_seed + i
 
 
-            # Llamada directa a la función de ejecución segura que maneja la DI correctamente
-
+            # Direct call to the safe execution function that handles DI correctly
             res = await run_experiment_safe(
                 experiment_id=f"A-{rate:.2f}-{i+1:03d}",
                 playbook_path=args.playbook_a,
@@ -270,7 +268,6 @@ async def run_comparison(args) -> bool:
     return True
 
 def parse_args():
-    # ... (args parsing unchanged) ...
     parser = argparse.ArgumentParser(description="Compare two PetstoreAgent configurations")
     parser.add_argument("--agent-a-label", type=str, default="Weak Agent")
     parser.add_argument("--playbook-a", type=str, required=True)

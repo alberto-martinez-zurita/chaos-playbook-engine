@@ -11,7 +11,7 @@ import shutil
 import webbrowser
 from pathlib import Path
 
-# Intentar importar librerías opcionales
+# Try to import optional libraries
 try:
     from rich.console import Console
     from rich.panel import Panel
@@ -19,9 +19,9 @@ try:
     console = Console(force_terminal=True)
     HAS_RICH = True
 except ImportError:
-    HAS_RICH = False
+    HAS_RICH = False # type: ignore
 
-# Librería para simular teclas (Opcional, para el truco del preview)
+# Library to simulate keystrokes (Optional, for the preview trick)
 try:
     import pyautogui
     HAS_PYAUTOGUI = True
@@ -40,21 +40,21 @@ def get_latest_run_dir(base_path: Path):
     return dirs[-1] if dirs else None
 
 def open_markdown_in_vscode(path: Path):
-    """Abre Markdown en VS Code y opcionalmente activa el Preview."""
+    """Opens Markdown in VS Code and optionally activates Preview."""
     if not path.exists(): return
     
     print(f"📄 Opening Report in VS Code: {path.name}...")
     
     if shutil.which("code"):
         try:
-            # Abre el archivo en VS Code
+            # Open the file in VS Code
             subprocess.run(["code", "-r", str(path)], shell=True, check=True)
             
-            # TRUCO DE MAGIA (Si tienes pyautogui instalado)
-            # Espera un poco a que VS Code tenga el foco y pulsa el atajo de Preview
+            # MAGIC TRICK (If you have pyautogui installed)
+            # Wait a bit for VS Code to get focus and press the Preview shortcut
             if HAS_PYAUTOGUI:
-                time.sleep(1.5) # Esperamos a que la ventana cargue
-                # Detectar sistema para el atajo correcto
+                time.sleep(1.5) # Wait for the window to load
+                # Detect system for the correct shortcut
                 if platform.system() == 'Darwin': # Mac
                     pyautogui.hotkey('command', 'shift', 'v')
                 else: # Windows / Linux
@@ -66,7 +66,7 @@ def open_markdown_in_vscode(path: Path):
     open_file_default(path)
 
 def open_dashboard_in_browser(path: Path):
-    """Muestra el link Y abre el navegador del sistema."""
+    """Shows the link AND opens the system's browser."""
     uri = path.absolute().as_uri()
     
     print(f"🌐 Launching Dashboard in default browser...")
@@ -134,7 +134,7 @@ def run_command(script_path, args, description):
                 if not alive and q.empty(): break
                 time.sleep(0.05)
     else:
-        # Fallback simple
+        # Simple fallback
         while True:
             alive = process.poll() is None
             while True:
@@ -181,7 +181,7 @@ def main():
                 
                 if f_name.endswith('.md'):
                     open_markdown_in_vscode(file_path)
-                    # Pequeña pausa para asegurar que VS Code procese antes de abrir el navegador
+                    # Short pause to ensure VS Code processes before opening the browser
                     time.sleep(3) 
                 
                 elif f_name.endswith('.html'):

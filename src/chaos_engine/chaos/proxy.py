@@ -1,6 +1,6 @@
 """
 Chaos Proxy - Middleware for Chaos Injection.
-Updated for New Architecture (assets/knowledge_base).
+
 """
 import random
 import httpx
@@ -26,12 +26,10 @@ class ChaosProxy:
     def _load_error_codes(self) -> Dict[str, str]:
         """Load HTTP error definitions from knowledge base."""
         try:
-            # Calcular la raíz del proyecto desde: src/chaos_engine/chaos/proxy.py
-            # Subimos 4 niveles: chaos -> chaos_engine -> src -> ROOT
+            # Calculate the project root from: src/chaos_engine/chaos/proxy.py
+            # We go up 4 levels: chaos -> chaos_engine -> src -> ROOT
             current_file = Path(__file__).resolve()
             project_root = current_file.parents[3]
-            
-            # ✅ RUTA NUEVA CORRECTA (assets/knowledge_base)
             json_path = project_root / "assets" / "knowledge_base" / "http_error_codes.json"
             
             if json_path.exists():
@@ -45,13 +43,11 @@ class ChaosProxy:
             self.logger.warning(f"⚠️ Error loading http_error_codes.json: {e}")
             return {"500": "Internal Server Error (Fallback)", "503": "Service Unavailable (Fallback)"}
 
-    # ✅ NUEVO MÉTODO: Calcular Backoff con Jitter (Pilar IV)
     def calculate_jittered_backoff(self, seconds: float) -> float:
         """
-        Calcula el tiempo de espera con Jitter (aleatoriedad).
-        Usa el generador del proxy para mantener el determinismo del test.
+        Calculates the wait time with Jitter (randomness).
+        It uses the proxy's random number generator to maintain test determinism.
         """
-        # Añade un offset aleatorio de hasta el 50% del tiempo base.
         jitter_factor = 0.5  
         random_offset = self.rng.random() * seconds * jitter_factor
         
@@ -60,16 +56,10 @@ class ChaosProxy:
         return jittered_delay
 
     async def send_request(self, method: str, endpoint: str, params: dict = None, json_body: dict = None) -> Dict[str, Any]:
-        """
-        Proxy inteligente: 
-        1. Decide si inyectar caos.
-        2. Aplica Zero-Trust (Validación).
-        3. Llama a la API real.
-        """
-        
-        # ✅ PILAR V: SEGURIDAD (Validación de Esquema - Zero-Trust)
+ 
+        # Zero-Trust: Basic schema validation
         if json_body and not isinstance(json_body.get('id'), int) and 'id' in json_body:
-             self.logger.error("❌ SEGURIDAD: Esquema inválido detectado (ID no es entero).")
+             self.logger.error("❌ SECURITY: Invalid schema detected (ID is not an integer).")
              return {"status": "error", "code": 400, "message": "Input validation failed: ID must be integer."}
 
         # 1. Chaos Check

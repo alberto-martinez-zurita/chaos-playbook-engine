@@ -45,15 +45,15 @@ from google.adk.evaluation.agent_evaluator import AgentEvaluator
 
 # Module to test
 import chaos_engine.agents.order_agent as order_agent_module
-from chaos_engine.core.playbook_manager import PlaybookManager
+from chaos_engine.core.playbook_storage import PlaybookStorage
 from chaos_engine.chaos.proxy import ChaosProxy
 
 # ==============================================================================
 # CONFIGURATION & CONSTANTS
 # ==============================================================================
 
-# Definimos el "Camino de Oro" EXACTO.
-# El agente DEBE replicar estos argumentos letra por letra.
+# Define the exact "Golden Path".
+# The agent MUST replicate these arguments precisely.
 EXPECTED_TOOL_USE = [
     {
         "tool_name": "get_inventory", 
@@ -89,17 +89,17 @@ async def run_single_eval_case(
     verbose: bool
 ):
     """
-    Ejecuta UNA evaluación usando ADK, inyectando la configuración específica.
+    Runs ONE evaluation using ADK, injecting the specific configuration.
     """
     
-    # 1. PREPARACIÓN DEL CASO DE PRUEBA (PROMPT BLINDADO)
-    # 🔥 FIX: Instrucciones explícitas para eliminar ambigüedad en los argumentos
+    # 1. PREPARE THE TEST CASE (ARMORED PROMPT)
+    # Explicit instructions to remove ambiguity in arguments.
     prompt_text = (
         f"Start a pet purchase session (Run: {run_id}).\n"
         "1. Check inventory.\n"
-        "2. Find pets explicitly with status='available'.\n" # Fuerza el argumento status
-        "3. Buy 1 unit of pet 12345.\n"                     # Fuerza quantity=1 y ID
-        "4. Update its status to 'sold' (use name='MockPet')." # Fuerza nombre correcto
+        "2. Find pets explicitly with status='available'.\n" # Force the 'status' argument
+        "3. Buy 1 unit of pet 12345.\n"                     # Force quantity=1 and ID
+        "4. Update its status to 'sold' (use name='MockPet')." # Force correct name
     )
 
     case_data = [
@@ -110,12 +110,12 @@ async def run_single_eval_case(
         }
     ]
     
-    # Crear archivo temporal
+    # Create a temporary file for the evaluation case
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8') as tmp:
         json.dump(case_data, tmp)
         tmp_path = tmp.name
 
-    # 2. INYECCIÓN DE DEPENDENCIAS
+    # 2. DEPENDENCY INJECTION
     scoped_proxy = ChaosProxy(
         failure_rate=failure_rate, 
         seed=seed, 
@@ -127,9 +127,9 @@ async def run_single_eval_case(
     if not pb_path_obj.exists():
         pb_path_obj = project_root / playbook_path
         
-    scoped_playbook = PlaybookManager(str(pb_path_obj))
+    scoped_playbook = PlaybookStorage(str(pb_path_obj))
 
-    # 3. EJECUCIÓN DEL EVALUADOR
+    # 3. EVALUATOR EXECUTION
     start_time = time.time()
     outcome = "failure"
     tool_score = 0.0
@@ -154,13 +154,13 @@ async def run_single_eval_case(
                 if results_list and len(results_list) > 0:
                     metrics = results_list[0].metrics if hasattr(results_list[0], 'metrics') else results_list[0]
                     
-                    # Extraer scores
+                    # Extract scores
                     tool_score = metrics.get('tool_trajectory_avg_score') or metrics.get('tool_use_match', 0)
                     
-                    # Si tool_score es 1.0, es perfecto. Si es >= 0.4, es aceptable.
+                    # If tool_score is 1.0, it's perfect. If >= 0.4, it's acceptable.
                     outcome = "success" if tool_score >= 0.4 else "failure"
                     
-                    # Inconsistencia: Pasos parciales correctos pero flujo incompleto
+                    # Inconsistency: Correct partial steps but incomplete flow
                     inconsistency = 1 if (0.0 < tool_score < 0.4) else 0
 
     except Exception as e:

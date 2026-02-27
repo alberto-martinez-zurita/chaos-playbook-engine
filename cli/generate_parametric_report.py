@@ -1,5 +1,5 @@
 """
-Report Generation Script for Parametric Experiments - PHASE 5.2.2
+Report Generation Script for Parametric Experiments.
 
 Location: scripts/generate_parametric_report.py
 

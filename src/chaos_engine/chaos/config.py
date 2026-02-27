@@ -36,14 +36,14 @@ class ChaosConfig:
         failure_type: Type of failure to inject
         max_delay_seconds: Maximum delay for timeout scenarios
         seed: Random seed for deterministic behavior (None = random)
-        verbose: Enable detailed chaos logging (default: False)  # ✅ NEW
+        verbose: Enable detailed chaos logging (default: False)  #
     """
     enabled: bool = False
     failure_rate: float = 0.0
     failure_type: Literal["timeout", "service_unavailable", "invalid_request", "cascade", "partial", "http_error"] = "timeout"
     max_delay_seconds: int = 2
     seed: Optional[int] = None
-    verbose: bool = False  # ✅ NEW: Default OFF
+    verbose: bool = False 
     
     # Private: random instance for deterministic behavior
     _random_instance: random.Random = field(default_factory=random.Random, init=False, repr=False)
@@ -58,7 +58,7 @@ class ChaosConfig:
         if self.seed is not None:
             self._random_instance.seed(self.seed)
 
-        # ✅ CHANGED: Only print if verbose=True
+        # Only print if verbose=True
         if self.verbose:
             print(f"\n[CHAOS INIT] Creating ChaosConfig:")
             print(f"  enabled={self.enabled}")
@@ -80,12 +80,12 @@ class ChaosConfig:
 
         # Early exit for edge cases
         if self.failure_rate >= 1.0:
-            if self.verbose:  # ✅ CHANGED
+            if self.verbose:  
                 print(f"[CHAOS CHECK] failure_rate >= 1.0 → ALWAYS FAIL")
             return True
 
         if self.failure_rate <= 0.0:
-            if self.verbose:  # ✅ CHANGED
+            if self.verbose:  
                 print(f"[CHAOS CHECK] failure_rate <= 0.0 → NEVER FAIL")
             return False
 
@@ -93,7 +93,7 @@ class ChaosConfig:
         random_value = self._random_instance.random()
         inject = random_value < self.failure_rate
 
-        # ✅ CHANGED: Only print debug info if verbose mode is ON
+        #  Only print debug info if verbose mode is ON
         if self.verbose:
             timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
             print(f"[CHAOS CHECK {timestamp}] should_inject_failure()")
@@ -117,7 +117,7 @@ class ChaosConfig:
 
         delay = self._random_instance.uniform(1.0, float(self.max_delay_seconds))
 
-        if self.verbose:  # ✅ CHANGED
+        if self.verbose:  # 
             print(f"[CHAOS DELAY] Generated delay: {delay:.2f}s (range: 1.0-{self.max_delay_seconds}s)")
 
         return delay
@@ -149,7 +149,7 @@ class ChaosConfig:
         elif self.failure_type == "service_unavailable":
             response["http_code"] = 503
 
-        # ✅ CHANGED: Only print failure info if verbose mode is ON
+        # Only print failure info if verbose mode is ON
         if self.verbose:
             print(f"[CHAOS RESPONSE] Generated failure response:")
             print(f"  api={api_name}")
@@ -167,7 +167,7 @@ class ChaosConfig:
         if self.seed is not None:
             self._random_instance.seed(self.seed)
 
-        # ✅ CHANGED: Only print reset info if verbose mode is ON
+        # Only print reset info if verbose mode is ON
         if self.verbose:
             print(f"[CHAOS RESET] Random state reset to seed={self.seed}")
 
@@ -198,13 +198,13 @@ class ChaosConfig:
         )
 
 
-# ✅ Factory function for backwards compatibility
+# Factory function for backwards compatibility
 def create_chaos_config(
     failure_type: str,
     failure_rate: float = 1.0,
     max_delay: int = 5,
     seed: Optional[int] = None,
-    verbose: bool = False  # ✅ NEW
+    verbose: bool = False  # 
 ) -> ChaosConfig:
     """
     Factory function to create ChaosConfig with validation.
@@ -214,7 +214,7 @@ def create_chaos_config(
         failure_rate: Probability (0.0-1.0)
         max_delay: Max delay for timeouts
         seed: Random seed
-        verbose: Enable verbose logging (default: False)  # ✅ NEW
+        verbose: Enable verbose logging (default: False)  # 
 
     Returns:
         Configured ChaosConfig instance
@@ -238,5 +238,5 @@ def create_chaos_config(
         failure_type=failure_type,
         max_delay_seconds=max_delay,
         seed=seed,
-        verbose=verbose  # ✅ NEW
+        verbose=verbose  # 
     )

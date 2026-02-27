@@ -1,5 +1,5 @@
 """
-Plotting Script for Parametric Experiment Results - PHASE 5.2.1
+Plotting Script for Parametric Experiment Results.
 
 Location: scripts/generate_parametric_plots.py
 
