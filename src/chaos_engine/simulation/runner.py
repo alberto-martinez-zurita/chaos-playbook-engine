@@ -1,73 +1,68 @@
 """
-ABTestRunner - Simplified Orchestrator for Phase 5 Simulation.
+ABTestRunner - Orchestrator for Parametric Simulation using DeterministicAgent.
+
+Refactored to use the real infrastructure stack (ChaosProxy, CircuitBreakerProxy,
+playbook lookup) instead of simulated API functions.
 """
-import asyncio
+
 import time
 import logging
-from typing import Dict, Any, List, Optional
-from dataclasses import dataclass
-from chaos_engine.simulation.apis import (
-    call_simulated_inventory_api,
-    call_simulated_payments_api,
-    call_simulated_erp_api,
-    call_simulated_shipping_api,
-)
-from chaos_engine.chaos.config import ChaosConfig
+from typing import Dict, Any, Optional
+from pathlib import Path
+
+from chaos_engine.agents.deterministic import DeterministicAgent
+from chaos_engine.chaos.proxy import ChaosProxy
+from chaos_engine.core.resilience import CircuitBreakerProxy
+
+# Default playbook paths (relative to project root)
+_DEFAULT_BASELINE = str(Path("assets/playbooks/baseline.json"))
+_DEFAULT_TRAINING = str(Path("assets/playbooks/training.json"))
+
 
 class ABTestRunner:
-    def __init__(self, logger: Optional[logging.Logger] = None):
+    def __init__(
+        self,
+        playbook_baseline_path: str = _DEFAULT_BASELINE,
+        playbook_training_path: str = _DEFAULT_TRAINING,
+        simulate_delays: bool = False,
+        logger: Optional[logging.Logger] = None,
+    ):
+        self.playbook_baseline_path = playbook_baseline_path
+        self.playbook_training_path = playbook_training_path
+        self.simulate_delays = simulate_delays
         self.logger = logger or logging.getLogger(__name__)
-        self.workflow_steps = [
-            ("inventory", self._step_inventory),
-            ("payment", self._step_payment),
-            ("erp", self._step_erp),
-            ("shipping", self._step_shipping)
-        ]
 
     async def run_experiment(self, agent_type: str, failure_rate: float, seed: int) -> Dict[str, Any]:
-        start_time = time.time()
-        steps_completed = []
-        failed_at = None # ✅ Inicializado a None
-        total_retries = 0
-        max_retries = 2 if agent_type == "playbook" else 0
-        
-        base_chaos_config = ChaosConfig(enabled=True, failure_rate=failure_rate, seed=seed)
-        status = "success"
-        
-        for step_name, step_func in self.workflow_steps:
-            step_success = False
-            for attempt in range(max_retries + 1):
-                current_config = base_chaos_config
-                if attempt > 0:
-                    total_retries += 1
-                    current_config = ChaosConfig(enabled=True, failure_rate=failure_rate, seed=seed + (attempt * 1000))
-                
-                result = await step_func(current_config)
-                
-                if result["status"] == "success":
-                    step_success = True
-                    break 
-                
-            if step_success:
-                steps_completed.append(step_name)
-            else:
-                status = "failure"
-                failed_at = step_name # ✅ Se asigna correctamente aquí
-                break 
-        
-        duration_ms = (time.time() - start_time) * 1000
-        
-        return {
-            "status": status,
-            "steps_completed": steps_completed,
-            "failed_at": failed_at, # ✅ Se devuelve aquí
-            "duration_ms": duration_ms,
-            "retries": total_retries,
-            "outcome": status, 
-            "agent_type": agent_type
-        }
+        """Run a single experiment with fresh ChaosProxy + CircuitBreaker + DeterministicAgent."""
 
-    async def _step_inventory(self, config): return await call_simulated_inventory_api("check_stock", {"sku": "W", "qty": 1}, config)
-    async def _step_payment(self, config): return await call_simulated_payments_api("capture", {"amount": 100}, config)
-    async def _step_erp(self, config): return await call_simulated_erp_api("create_order", {"user_id": "U1"}, config)
-    async def _step_shipping(self, config): return await call_simulated_shipping_api("create_shipment", {"order_id": "O1", "address": "A1"}, config)
+        # 1. Create fresh infrastructure per experiment (no state leakage)
+        chaos_proxy = ChaosProxy(
+            failure_rate=failure_rate,
+            seed=seed,
+            mock_mode=True,
+            verbose=False,
+        )
+        circuit_breaker = CircuitBreakerProxy(
+            wrapped_executor=chaos_proxy,
+            failure_threshold=3,
+            cooldown_seconds=30,
+        )
+
+        # 2. Select playbook based on agent type
+        playbook_path = (
+            self.playbook_training_path
+            if agent_type == "playbook"
+            else self.playbook_baseline_path
+        )
+
+        # 3. Create and run deterministic agent
+        agent = DeterministicAgent(
+            tool_executor=circuit_breaker,
+            playbook_path=playbook_path,
+            simulate_delays=self.simulate_delays,
+        )
+
+        result = await agent.run()
+        result["agent_type"] = agent_type
+
+        return result

@@ -23,18 +23,26 @@ except ImportError:
 
 class ParametricABTestRunner:
     def __init__(
-        self, 
-        failure_rates: List[float], 
-        experiments_per_rate: int, 
+        self,
+        failure_rates: List[float],
+        experiments_per_rate: int,
         output_dir: Path,
         seed: int = 42,
-        logger: Optional[logging.Logger] = None
+        logger: Optional[logging.Logger] = None,
+        playbook_baseline_path: str = "assets/playbooks/baseline.json",
+        playbook_training_path: str = "assets/playbooks/training.json",
+        simulate_delays: bool = False,
     ):
         self.failure_rates = failure_rates
         self.experiments_per_rate = experiments_per_rate
         self.output_dir = output_dir
         self.base_seed = seed
-        self.ab_runner = ABTestRunner()
+        self.ab_runner = ABTestRunner(
+            playbook_baseline_path=playbook_baseline_path,
+            playbook_training_path=playbook_training_path,
+            simulate_delays=simulate_delays,
+            logger=logger,
+        )
         self.logger = logger or logging.getLogger(__name__)
 
     async def run_parametric_experiments(self) -> Dict[str, Any]:
@@ -151,10 +159,10 @@ class ParametricABTestRunner:
         if not failed_at and result["status"] == "failure":
             self.logger.warning(f"⚠️ Result marked failure but failed_at is empty: {result}")
 
-        # Lógica de negocio: 
-        # Inventory/Payment fail -> Safe (0)
-        # ERP/Shipping fail -> Unsafe (1)
-        if failed_at in ["erp", "shipping"]:
+        # Lógica de negocio:
+        # get_inventory/find_pets_by_status fail -> Safe (0)
+        # place_order/update_pet_status fail -> Unsafe (1)
+        if failed_at in ["place_order", "update_pet_status"]:
             return 1
             
         return 0
