@@ -15,8 +15,14 @@ def main():
     parser.add_argument("--failure-rates", type=float, nargs="+", required=True)
     parser.add_argument("--experiments-per-rate", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42, help="Base seed for reproducibility (default: 42)")
-    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging to console") 
-    
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging to console")
+    parser.add_argument("--playbook-baseline", type=str, default="assets/playbooks/baseline.json",
+                        help="Path to baseline playbook JSON (default: assets/playbooks/baseline.json)")
+    parser.add_argument("--playbook-training", type=str, default="assets/playbooks/training.json",
+                        help="Path to training playbook JSON (default: assets/playbooks/training.json)")
+    parser.add_argument("--simulate-delays", action="store_true",
+                        help="Actually sleep during backoff delays (slow but realistic latency metrics)")
+
     args = parser.parse_args()
     
 # 1. PREPARAR DIRECTORIO
@@ -50,7 +56,10 @@ def main():
         experiments_per_rate=args.experiments_per_rate,
         output_dir=output_dir,
         seed=args.seed,
-        logger=logger
+        logger=logger,
+        playbook_baseline_path=args.playbook_baseline,
+        playbook_training_path=args.playbook_training,
+        simulate_delays=args.simulate_delays,
     )
     
     
