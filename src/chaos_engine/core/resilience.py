@@ -8,6 +8,7 @@ import time
 from typing import Any, Dict, Optional
 
 from chaos_engine.core.protocols import Executor
+from chaos_engine.core.types import Status
 
 
 class CircuitBreakerProxy:
@@ -42,7 +43,7 @@ class CircuitBreakerProxy:
         if self._is_open:
             if time.time() < self._opened_timestamp + self._cooldown_seconds:
                 self.logger.warning("CIRCUIT OPEN: Request to %s blocked (Cooldown active).", endpoint)
-                return {"status": "error", "code": 503, "message": "Circuit Breaker Open: Service is down."}
+                return {"status": Status.ERROR, "code": 503, "message": "Circuit Breaker Open: Service is down."}
             else:
                 # Transition to Half-Open: allow exactly one probe request.
                 self._half_open = True
@@ -52,7 +53,7 @@ class CircuitBreakerProxy:
         # 1b. HALF-OPEN guard: only one request allowed
         if self._half_open:
             response = await self._executor.send_request(method, endpoint, params, json_body)
-            if response.get("status") == "error":
+            if response.get("status") == Status.ERROR:
                 # Probe failed — reopen with fresh cooldown
                 self._half_open = False
                 self._is_open = True
@@ -69,7 +70,7 @@ class CircuitBreakerProxy:
         response = await self._executor.send_request(method, endpoint, params, json_body)
 
         # 3. State Handling
-        if response.get("status") == "error":
+        if response.get("status") == Status.ERROR:
             self._handle_failure()
         else:
             self._handle_success()

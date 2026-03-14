@@ -12,6 +12,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
+from chaos_engine.core.types import Status, WorkflowStep
 from chaos_engine.simulation.runner import ABTestRunner
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ class _StreamingAggregator:
         b["n"] += 1
         n = b["n"]
 
-        if result["status"] == "success":
+        if result["status"] == Status.SUCCESS:
             b["successes"] += 1
 
         # Welford online update — duration_ms
@@ -230,19 +231,15 @@ class ParametricABTestRunner:
         Calcula si hubo inconsistencia de datos.
         Regla: Si falló en ERP o Shipping, es inconsistente (se cobró pero no se entregó).
         """
-        if result["status"] == "success":
+        if result["status"] == Status.SUCCESS:
             return 0
-            
+
         failed_at = result.get("failed_at")
-        
-        # Debug visual si falla la detección
-        if not failed_at and result["status"] == "failure":
+
+        if not failed_at and result["status"] == Status.FAILURE:
             self.logger.warning("Result marked failure but failed_at is empty: %s", result)
 
-        # Lógica de negocio:
-        # get_inventory/find_pets_by_status fail -> Safe (0)
-        # place_order/update_pet_status fail -> Unsafe (1)
-        if failed_at in ["place_order", "update_pet_status"]:
+        if failed_at in (WorkflowStep.PLACE_ORDER, WorkflowStep.UPDATE_PET):
             return 1
             
         return 0

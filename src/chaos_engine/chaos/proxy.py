@@ -11,36 +11,52 @@ from typing import Any, Dict, Optional
 
 import httpx
 
+from chaos_engine.core.types import Status
+
+_FALLBACK_ERROR_CODES: Dict[str, str] = {
+    "500": "Internal Server Error (Fallback)",
+    "503": "Service Unavailable (Fallback)",
+}
+
+
 class ChaosProxy:
-    def __init__(self, failure_rate: float, seed: int, mock_mode: bool = False, verbose: bool = False):
+    def __init__(
+        self,
+        failure_rate: float,
+        seed: int,
+        mock_mode: bool = False,
+        verbose: bool = False,
+        error_codes_path: str | Path | None = None,
+    ):
         self.failure_rate = failure_rate
         self.rng = random.Random(seed)
         self.mock_mode = mock_mode
         self.verbose = verbose
         self.logger = logging.getLogger("ChaosProxy")
         self.base_url = "https://petstore3.swagger.io/api/v3"
-        self.error_codes = self._load_error_codes()
+        self.error_codes = self._load_error_codes(error_codes_path)
         self.base_delay = 1.0
 
-    def _load_error_codes(self) -> Dict[str, str]:
+    def _load_error_codes(self, explicit_path: str | Path | None) -> Dict[str, str]:
         """Load HTTP error definitions from knowledge base."""
         try:
-            # Calculate the project root from: src/chaos_engine/chaos/proxy.py
-            # We go up 4 levels: chaos -> chaos_engine -> src -> ROOT
-            current_file = Path(__file__).resolve()
-            project_root = current_file.parents[3]
-            json_path = project_root / "assets" / "knowledge_base" / "http_error_codes.json"
-            
+            if explicit_path is not None:
+                json_path = Path(explicit_path)
+            else:
+                # Default: derive from __file__ (works in source-layout installs)
+                project_root = Path(__file__).resolve().parents[3]
+                json_path = project_root / "assets" / "knowledge_base" / "http_error_codes.json"
+
             if json_path.exists():
-                with open(json_path, 'r', encoding='utf-8') as f:
+                with open(json_path, "r", encoding="utf-8") as f:
                     return json.load(f)
 
             self.logger.warning("http_error_codes.json not found at %s. Using fallback.", json_path)
-            return {"500": "Internal Server Error (Fallback)", "503": "Service Unavailable (Fallback)"}
+            return dict(_FALLBACK_ERROR_CODES)
 
         except Exception:
             self.logger.warning("Error loading http_error_codes.json", exc_info=True)
-            return {"500": "Internal Server Error (Fallback)", "503": "Service Unavailable (Fallback)"}
+            return dict(_FALLBACK_ERROR_CODES)
 
     def calculate_jittered_backoff(self, seconds: float) -> float:
         """
@@ -59,7 +75,7 @@ class ChaosProxy:
         # Zero-Trust: Basic schema validation
         if json_body and not isinstance(json_body.get('id'), int) and 'id' in json_body:
              self.logger.error("❌ SECURITY: Invalid schema detected (ID is not an integer).")
-             return {"status": "error", "code": 400, "message": "Input validation failed: ID must be integer."}
+             return {"status": Status.ERROR, "code": 400, "message": "Input validation failed: ID must be integer."}
 
         # 1. Chaos Check
         if self.rng.random() < self.failure_rate:
@@ -70,7 +86,7 @@ class ChaosProxy:
             error_msg = self.error_codes.get(error_code, "Unknown Error")
             
             self.logger.info("CHAOS INJECTED: Simulating %s on %s", error_code, endpoint)
-            return {"status": "error", "code": int(error_code), "message": f"Simulated Chaos: {error_msg}"}
+            return {"status": Status.ERROR, "code": int(error_code), "message": f"Simulated Chaos: {error_msg}"}
 
         # 2. Mock Mode
         if self.mock_mode:
@@ -97,22 +113,22 @@ class ChaosProxy:
 
                 if resp.status_code >= 400:
                     self.logger.warning("API Error %d: %s", resp.status_code, resp.text[:100])
-                    return {"status": "error", "code": resp.status_code, "message": resp.text}
+                    return {"status": Status.ERROR, "code": resp.status_code, "message": resp.text}
 
-                return {"status": "success", "code": resp.status_code, "data": resp.json()}
+                return {"status": Status.SUCCESS, "code": resp.status_code, "data": resp.json()}
 
             except Exception as e:
                 self.logger.error("Network Exception: %s", e)
-                return {"status": "error", "code": 500, "message": str(e)}
+                return {"status": Status.ERROR, "code": 500, "message": str(e)}
 
     def _generate_mock_response(self, method: str, endpoint: str) -> Dict[str, Any]:
         if "inventory" in endpoint:
-            return {"status": "success", "code": 200, "data": {"available": 100, "sold": 5, "pending": 2}}
+            return {"status": Status.SUCCESS, "code": 200, "data": {"available": 100, "sold": 5, "pending": 2}}
         elif "findByStatus" in endpoint:
-            return {"status": "success", "code": 200, "data": [{"id": 12345, "name": "MockPet", "status": "available"}]}
+            return {"status": Status.SUCCESS, "code": 200, "data": [{"id": 12345, "name": "MockPet", "status": "available"}]}
         elif "order" in endpoint:
-            return {"status": "success", "code": 200, "data": {"id": 999, "petId": 12345, "status": "placed", "complete": True}}
+            return {"status": Status.SUCCESS, "code": 200, "data": {"id": 999, "petId": 12345, "status": "placed", "complete": True}}
         elif "pet" in endpoint and method == "PUT":
-             return {"status": "success", "code": 200, "data": {"id": 12345, "name": "MockPet", "status": "sold"}}
+             return {"status": Status.SUCCESS, "code": 200, "data": {"id": 12345, "name": "MockPet", "status": "sold"}}
         else:
-            return {"status": "success", "code": 200, "data": {"message": "Mock success"}}
+            return {"status": Status.SUCCESS, "code": 200, "data": {"message": "Mock success"}}

@@ -24,24 +24,19 @@ class ConfigLoader:
     
     def __init__(self, config_dir: Optional[Path] = None):
         if config_dir:
-            self.config_dir = config_dir
+            self.config_dir = Path(config_dir)
         else:
-            # ✅ FIX: Calcular project_root correctamente desde la nueva ubicación
-            # Ubicación actual: src/chaos_engine/core/config.py
-            # Raíz deseada: (root)/
-            current_file = Path(__file__).resolve()
-            # Subir 3 niveles: core -> chaos_engine -> src -> ROOT
-            self.project_root = current_file.parent.parent.parent.parent
-            self.config_dir = self.project_root / "config"
-
-        if not self.config_dir.exists():
-            # Fallback por si acaso la estructura es diferente
-            # Intentar buscar 'config' en el directorio de trabajo actual
+            # Try cwd first (works for any install method), then fall back to __file__
             cwd_config = Path.cwd() / "config"
             if cwd_config.exists():
                 self.config_dir = cwd_config
             else:
-                import logging
+                # Derive from source layout: src/chaos_engine/core/config.py → ROOT/config
+                project_root = Path(__file__).resolve().parents[3]
+                self.config_dir = project_root / "config"
+
+        if not self.config_dir.exists():
+            import logging
             logging.getLogger(__name__).warning("Config dir not found at %s", self.config_dir)
         
     def load(self, environment: str = None) -> Dict[str, Any]:

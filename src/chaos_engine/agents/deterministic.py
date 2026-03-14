@@ -14,17 +14,24 @@ import time
 from typing import Any, Dict, Final, Optional, Tuple
 
 from chaos_engine.core.protocols import Executor
+from chaos_engine.core.types import (
+    ApiResponse,
+    ExperimentResult,
+    RetryStrategy,
+    Status,
+    WorkflowStep,
+)
 
 
 # Step definition: (result_name, playbook_tool_name, http_method, endpoint, params, json_body)
 WORKFLOW_STEPS: Final[tuple[
     tuple[str, str, str, str, Optional[Dict], Optional[Dict]], ...
 ]] = (
-    ("get_inventory", "get_inventory", "GET", "/store/inventory", None, None),
-    ("find_pets_by_status", "find_pets_by_status", "GET", "/pet/findByStatus", {"status": "available"}, None),
-    ("place_order", "place_order", "POST", "/store/order",
+    (WorkflowStep.GET_INVENTORY, WorkflowStep.GET_INVENTORY, "GET", "/store/inventory", None, None),
+    (WorkflowStep.FIND_PETS, WorkflowStep.FIND_PETS, "GET", "/pet/findByStatus", {"status": "available"}, None),
+    (WorkflowStep.PLACE_ORDER, WorkflowStep.PLACE_ORDER, "POST", "/store/order",
      None, {"petId": 12345, "quantity": 1, "status": "placed", "complete": False}),
-    ("update_pet_status", "update_pet_status", "PUT", "/pet",
+    (WorkflowStep.UPDATE_PET, WorkflowStep.UPDATE_PET, "PUT", "/pet",
      None, {"id": 12345, "name": "MockPet", "status": "sold", "photoUrls": []}),
 )
 
@@ -57,11 +64,11 @@ class DeterministicAgent:
             logging.getLogger("DeterministicAgent").warning("Error loading playbook %s", path, exc_info=True)
             return {}
 
-    async def run(self) -> Dict[str, Any]:
+    async def run(self) -> ExperimentResult:
         """Execute the 4-step workflow. Returns result compatible with ABTestRunner."""
         start_time = time.time()
-        steps_completed: List[str] = []
-        failed_at: Optional[str] = None
+        steps_completed: list[str] = []
+        failed_at: str | None = None
         total_retries = 0
         total_simulated_delay = 0.0
 
@@ -72,25 +79,25 @@ class DeterministicAgent:
             total_retries += retries
             total_simulated_delay += simulated_delay
 
-            if result.get("status") == "success":
+            if result.get("status") == Status.SUCCESS:
                 steps_completed.append(step_name)
             else:
                 failed_at = step_name
                 break
 
         duration_ms = (time.time() - start_time) * 1000
-        status = "success" if failed_at is None else "failure"
+        status = Status.SUCCESS if failed_at is None else Status.FAILURE
 
-        return {
-            "status": status,
-            "steps_completed": steps_completed,
-            "failed_at": failed_at,
-            "duration_ms": duration_ms,
-            "retries": total_retries,
-            "simulated_delay_s": round(total_simulated_delay, 3),
-            "outcome": status,
-            "agent_type": "",  # filled by caller
-        }
+        return ExperimentResult(
+            status=status,
+            steps_completed=steps_completed,
+            failed_at=failed_at,
+            duration_ms=duration_ms,
+            retries=total_retries,
+            simulated_delay_s=round(total_simulated_delay, 3),
+            outcome=status,
+            agent_type="",
+        )
 
     async def _execute_step(
         self, tool_name: str, method: str, endpoint: str,
@@ -100,13 +107,13 @@ class DeterministicAgent:
 
         result = await self.executor.send_request(method, endpoint, params, json_body)
 
-        if result.get("status") == "success":
+        if result.get("status") == Status.SUCCESS:
             return result, 0, 0.0
 
         # Error path — consult playbook
         error_code = str(result.get("code", 500))
         strategy_entry = self._resolve_strategy(tool_name, error_code)
-        strategy = strategy_entry.get("strategy", "fail_fast")
+        strategy = strategy_entry.get("strategy", RetryStrategy.FAIL_FAST)
         config = strategy_entry.get("config", {})
 
         if self.verbose:
@@ -114,7 +121,7 @@ class DeterministicAgent:
                 "  [%s] Error %s -> strategy: %s", tool_name, error_code, strategy
             )
 
-        if strategy in ("fail_fast", "escalate_to_human"):
+        if strategy in (RetryStrategy.FAIL_FAST, RetryStrategy.ESCALATE_TO_HUMAN):
             return result, 0, 0.0
 
         return await self._retry_with_strategy(
@@ -130,7 +137,7 @@ class DeterministicAgent:
         default = self.playbook_data.get("default")
         if default:
             return default
-        return {"strategy": "fail_fast", "config": {}}
+        return {"strategy": RetryStrategy.FAIL_FAST, "config": {}}
 
     async def _retry_with_strategy(
         self, strategy: str, config: Dict,
@@ -152,7 +159,7 @@ class DeterministicAgent:
 
             result = await self.executor.send_request(method, endpoint, params, json_body)
 
-            if result.get("status") == "success":
+            if result.get("status") == Status.SUCCESS:
                 return result, attempt, total_delay
 
         # All retries exhausted
@@ -161,13 +168,13 @@ class DeterministicAgent:
     @staticmethod
     def _calculate_delay(strategy: str, config: Dict, attempt: int) -> float:
         """Calculate base delay before jitter, based on strategy type."""
-        if strategy == "retry_linear_backoff":
+        if strategy == RetryStrategy.RETRY_LINEAR:
             return config.get("delay", 1.0) * attempt
 
-        if strategy == "wait_and_retry":
+        if strategy == RetryStrategy.WAIT_AND_RETRY:
             return config.get("wait_seconds", 5.0)
 
-        if strategy == "retry_exponential_backoff":
+        if strategy == RetryStrategy.RETRY_EXPONENTIAL:
             base = config.get("base_delay", 1.0)
             return base * (2 ** (attempt - 1))
 
