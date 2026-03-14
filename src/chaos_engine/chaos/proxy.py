@@ -36,6 +36,7 @@ class ChaosProxy:
         self.base_url = "https://petstore3.swagger.io/api/v3"
         self.error_codes = self._load_error_codes(error_codes_path)
         self.base_delay = 1.0
+        self._client: httpx.AsyncClient | None = None
 
     def _load_error_codes(self, explicit_path: str | Path | None) -> Dict[str, str]:
         """Load HTTP error definitions from knowledge base."""
@@ -96,30 +97,42 @@ class ChaosProxy:
         # 3. Real API Call
         self.logger.info("REAL API CALL: %s %s", method, endpoint)
         url = f"{self.base_url}{endpoint}"
-        async with httpx.AsyncClient() as client:
-            try:
-                if method == "GET":
-                    resp = await client.get(url, params=params, timeout=10.0)
-                elif method == "POST":
-                    resp = await client.post(url, json=json_body, timeout=10.0)
-                elif method == "PUT":
-                    resp = await client.put(url, json=json_body, timeout=10.0)
-                elif method == "DELETE":
-                    resp = await client.delete(url, timeout=10.0)
-                elif method == "PATCH":
-                    resp = await client.patch(url, json=json_body, timeout=10.0)
-                else:
-                    raise ValueError(f"Unsupported HTTP method: {method}")
+        client = await self._get_client()
+        try:
+            if method == "GET":
+                resp = await client.get(url, params=params, timeout=10.0)
+            elif method == "POST":
+                resp = await client.post(url, json=json_body, timeout=10.0)
+            elif method == "PUT":
+                resp = await client.put(url, json=json_body, timeout=10.0)
+            elif method == "DELETE":
+                resp = await client.delete(url, timeout=10.0)
+            elif method == "PATCH":
+                resp = await client.patch(url, json=json_body, timeout=10.0)
+            else:
+                raise ValueError(f"Unsupported HTTP method: {method}")
 
-                if resp.status_code >= 400:
-                    self.logger.warning("API Error %d: %s", resp.status_code, resp.text[:100])
-                    return {"status": Status.ERROR, "code": resp.status_code, "message": resp.text}
+            if resp.status_code >= 400:
+                self.logger.warning("API Error %d: %s", resp.status_code, resp.text[:100])
+                return {"status": Status.ERROR, "code": resp.status_code, "message": resp.text}
 
-                return {"status": Status.SUCCESS, "code": resp.status_code, "data": resp.json()}
+            return {"status": Status.SUCCESS, "code": resp.status_code, "data": resp.json()}
 
-            except Exception as e:
-                self.logger.error("Network Exception: %s", e)
-                return {"status": Status.ERROR, "code": 500, "message": str(e)}
+        except Exception as e:
+            self.logger.error("Network Exception: %s", e)
+            return {"status": Status.ERROR, "code": 500, "message": str(e)}
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        """Return reusable httpx client, creating one if needed."""
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(timeout=10.0)
+        return self._client
+
+    async def close(self) -> None:
+        """Close the reusable HTTP client."""
+        if self._client is not None and not self._client.is_closed:
+            await self._client.aclose()
+            self._client = None
 
     def _generate_mock_response(self, method: str, endpoint: str) -> Dict[str, Any]:
         if "inventory" in endpoint:

@@ -23,4 +23,5 @@ Thumbs.db
 scan_project.py
 project_content.txt
 .claude/
+.hypothesis/
 research/.hypothesis/
