@@ -232,7 +232,7 @@ async def run_comparison(args) -> bool:
 
             all_results.append(res)
             
-            if args.verbose: print(f"    Run {i+1}: {'✅' if res['outcome']=='success' else '❌'}")
+            logger.debug("    Run %d: %s", i + 1, "success" if res["outcome"] == "success" else "failure")
             if i < args.experiments_per_rate - 1: await asyncio.sleep(SAFE_DELAY_SECONDS)
             
         await asyncio.sleep(SAFE_DELAY_SECONDS)
@@ -254,7 +254,7 @@ async def run_comparison(args) -> bool:
             )
             all_results.append(res)
             
-            if args.verbose: print(f"    Run {i+1}: {'✅' if res['outcome']=='success' else '❌'}")
+            logger.debug("    Run %d: %s", i + 1, "success" if res["outcome"] == "success" else "failure")
             if i < args.experiments_per_rate - 1: await asyncio.sleep(SAFE_DELAY_SECONDS)
             
         base_seed += args.experiments_per_rate

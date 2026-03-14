@@ -222,7 +222,7 @@ def load_template() -> str:
     raise FileNotFoundError("Template dashboard.html not found")
 
 def generate_dashboard(metrics_path: Path, output_path: Path):
-    print(f"\n🎨 Generating dashboard from: {metrics_path}")
+    logger.info("Generating dashboard from: %s", metrics_path)
     with open(metrics_path, 'r') as f: metrics = json.load(f)
         
     chart = extract_chart_data(metrics)
@@ -258,7 +258,7 @@ def generate_dashboard(metrics_path: Path, output_path: Path):
         template = load_template()
         html = template.format(**context)
         with open(output_path, 'w', encoding='utf-8') as f: f.write(html)
-        print(f"✅ Dashboard saved to: {output_path}")
+        logger.info("Dashboard saved to: %s", output_path)
     except Exception as e:
         logger.error("Render failed: %s", e)
         raise
@@ -278,7 +278,7 @@ def main():
     elif args.run_dir:
         run_dir = base_dir / args.run_dir
     else:
-        print("Use --latest or --run-dir")
+        logger.error("Use --latest or --run-dir")
         return
 
     metrics_path = run_dir / "aggregated_metrics.json"
@@ -287,7 +287,7 @@ def main():
     if metrics_path.exists():
         generate_dashboard(metrics_path, output_path)
     else:
-        print(f"Metrics not found: {metrics_path}")
+        logger.error("Metrics not found: %s", metrics_path)
 
 if __name__ == "__main__":
     main()

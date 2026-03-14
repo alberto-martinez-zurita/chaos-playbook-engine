@@ -16,10 +16,13 @@ DEBUG VERSION (Nov 23, 2025) - VERBOSE MODE ADDED:
 """
 from __future__ import annotations
 
+import logging
 import random
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal, Optional
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -58,16 +61,9 @@ class ChaosConfig:
         if self.seed is not None:
             self._random_instance.seed(self.seed)
 
-        # Only print if verbose=True
-        if self.verbose:
-            print(f"\n[CHAOS INIT] Creating ChaosConfig:")
-            print(f"  enabled={self.enabled}")
-            print(f"  failure_rate={self.failure_rate}")
-            print(f"  failure_type={self.failure_type}")
-            print(f"  max_delay_seconds={self.max_delay_seconds}")
-            print(f"  seed={self.seed}")
-            print(f"  verbose={self.verbose}")  # ✅ NEW
-            print(f"  ✅ Random instance created with seed={self.seed}\n")
+        logger.debug("[CHAOS INIT] Creating ChaosConfig: enabled=%s, failure_rate=%s, failure_type=%s, max_delay_seconds=%s, seed=%s, verbose=%s",
+                     self.enabled, self.failure_rate, self.failure_type, self.max_delay_seconds, self.seed, self.verbose)
+        logger.debug("[CHAOS INIT] Random instance created with seed=%s", self.seed)
 
     def should_inject_failure(self) -> bool:
         """
@@ -80,27 +76,20 @@ class ChaosConfig:
 
         # Early exit for edge cases
         if self.failure_rate >= 1.0:
-            if self.verbose:  
-                print(f"[CHAOS CHECK] failure_rate >= 1.0 → ALWAYS FAIL")
+            logger.debug("[CHAOS CHECK] failure_rate >= 1.0 -> ALWAYS FAIL")
             return True
 
         if self.failure_rate <= 0.0:
-            if self.verbose:  
-                print(f"[CHAOS CHECK] failure_rate <= 0.0 → NEVER FAIL")
+            logger.debug("[CHAOS CHECK] failure_rate <= 0.0 -> NEVER FAIL")
             return False
 
         # Generate random value
         random_value = self._random_instance.random()
         inject = random_value < self.failure_rate
 
-        #  Only print debug info if verbose mode is ON
-        if self.verbose:
-            timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-            print(f"[CHAOS CHECK {timestamp}] should_inject_failure()")
-            print(f"  enabled={self.enabled}")
-            print(f"  failure_rate={self.failure_rate}")
-            print(f"  random_value={random_value:.6f}")
-            print(f"  inject={inject} ({'✓ CHAOS INJECTED' if inject else '✗ no chaos'})")
+        timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        logger.debug("[CHAOS CHECK %s] should_inject_failure(): enabled=%s, failure_rate=%s, random_value=%.6f, inject=%s",
+                     timestamp, self.enabled, self.failure_rate, random_value, inject)
 
         return inject
 
@@ -117,8 +106,7 @@ class ChaosConfig:
 
         delay = self._random_instance.uniform(1.0, float(self.max_delay_seconds))
 
-        if self.verbose:  # 
-            print(f"[CHAOS DELAY] Generated delay: {delay:.2f}s (range: 1.0-{self.max_delay_seconds}s)")
+        logger.debug("[CHAOS DELAY] Generated delay: %.2fs (range: 1.0-%ss)", delay, self.max_delay_seconds)
 
         return delay
 
@@ -149,12 +137,8 @@ class ChaosConfig:
         elif self.failure_type == "service_unavailable":
             response["http_code"] = 503
 
-        # Only print failure info if verbose mode is ON
-        if self.verbose:
-            print(f"[CHAOS RESPONSE] Generated failure response:")
-            print(f"  api={api_name}")
-            print(f"  endpoint={endpoint}")
-            print(f"  failure_type={self.failure_type}")
+        logger.debug("[CHAOS RESPONSE] Generated failure response: api=%s, endpoint=%s, failure_type=%s",
+                     api_name, endpoint, self.failure_type)
 
         return response
 
@@ -167,9 +151,7 @@ class ChaosConfig:
         if self.seed is not None:
             self._random_instance.seed(self.seed)
 
-        # Only print reset info if verbose mode is ON
-        if self.verbose:
-            print(f"[CHAOS RESET] Random state reset to seed={self.seed}")
+        logger.debug("[CHAOS RESET] Random state reset to seed=%s", self.seed)
 
     def __eq__(self, other):
         """Compare ChaosConfig objects (excluding _random_instance)."""

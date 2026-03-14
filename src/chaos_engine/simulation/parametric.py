@@ -5,17 +5,107 @@ REFACTORED: Streaming/Generator pattern for GreenOps compliance.
 """
 from __future__ import annotations
 
-import asyncio
 import csv
 import json
 import logging
-import time
 from collections import defaultdict
-from datetime import datetime
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from chaos_engine.simulation.runner import ABTestRunner
+
+logger = logging.getLogger(__name__)
+
+
+class _StreamingAggregator:
+    """Online aggregator using Welford's algorithm for mean and variance.
+
+    Processes one result at a time — O(1) memory per rate/agent_type bucket.
+    Replaces the old ``all_results_buffer`` list that required O(N) memory.
+    """
+
+    def __init__(self) -> None:
+        # key: (failure_rate, agent_type) -> stats accumulator
+        self._buckets: Dict[tuple[float, str], Dict[str, Any]] = {}
+
+    def _ensure_bucket(self, key: tuple[float, str]) -> Dict[str, Any]:
+        if key not in self._buckets:
+            self._buckets[key] = {
+                "n": 0,
+                "successes": 0,
+                # Welford accumulators for duration
+                "dur_mean": 0.0,
+                "dur_m2": 0.0,
+                # Welford accumulators for inconsistencies
+                "inc_mean": 0.0,
+                "inc_m2": 0.0,
+            }
+        return self._buckets[key]
+
+    def process(self, result: Dict[str, Any]) -> None:
+        """Ingest a single experiment result (O(1) memory)."""
+        key = (result["failure_rate"], result["agent_type"])
+        b = self._ensure_bucket(key)
+
+        b["n"] += 1
+        n = b["n"]
+
+        if result["status"] == "success":
+            b["successes"] += 1
+
+        # Welford online update — duration_ms
+        dur = result["duration_ms"]
+        delta = dur - b["dur_mean"]
+        b["dur_mean"] += delta / n
+        delta2 = dur - b["dur_mean"]
+        b["dur_m2"] += delta * delta2
+
+        # Welford online update — inconsistencies
+        inc = result.get("inconsistencies_count", 0)
+        delta_i = inc - b["inc_mean"]
+        b["inc_mean"] += delta_i / n
+        delta_i2 = inc - b["inc_mean"]
+        b["inc_m2"] += delta_i * delta_i2
+
+    def build_metrics(self) -> Dict[str, Any]:
+        """Produce the aggregated_metrics.json-compatible dict."""
+        import math
+
+        # Group by failure_rate
+        rates: Dict[float, Dict[str, Dict]] = defaultdict(dict)
+        for (rate, agent_type), b in self._buckets.items():
+            n = b["n"]
+            std_dur = math.sqrt(b["dur_m2"] / n) if n > 1 else 0.0
+            std_inc = math.sqrt(b["inc_m2"] / n) if n > 1 else 0.0
+            success_rate = b["successes"] / n if n else 0.0
+            std_sr = math.sqrt(success_rate * (1 - success_rate) / n) if n else 0.0
+
+            rates[rate][agent_type] = {
+                "n_runs": n,
+                "success_rate": {"mean": success_rate, "std": round(std_sr, 6)},
+                "duration_s": {
+                    "mean": (b["dur_mean"] / 1000) if n else 0,
+                    "std": round(std_dur / 1000, 6),
+                },
+                "inconsistencies": {
+                    "mean": b["inc_mean"],
+                    "std": round(std_inc, 6),
+                },
+            }
+
+        metrics: Dict[str, Any] = {}
+        for rate in sorted(rates):
+            rate_key = str(rate)
+            group = rates[rate]
+            total = sum(v["n_runs"] for v in group.values())
+            metrics[rate_key] = {
+                "failure_rate": rate,
+                "n_experiments": total // 2,
+                "baseline": group.get("baseline", {}),
+                "playbook": group.get("playbook", {}),
+            }
+        return metrics
+
 
 class ParametricABTestRunner:
     def __init__(
@@ -57,34 +147,31 @@ class ParametricABTestRunner:
             "retries", "seed", "failure_rate"
         ]
 
-        # Accumulator for aggregation (Metrics still need full context)
-        # Note: Ideally aggregation would also be streaming, but this fixes the I/O bottleneck first.
-        all_results_buffer = []
+        aggregator = _StreamingAggregator()
+        count = 0
 
         with open(csv_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=csv_keys)
             writer.writeheader()
-            
-            # Consume the generator
+
             async for result in self._experiment_generator():
-                # 1. Enrich result (Inconsistency Calc)
                 incons = self._calculate_inconsistency(result)
                 result["inconsistencies_count"] = incons
-                
-                # 2. Write to Disk Immediately (Streaming)
-                row = self._flatten_result_for_csv(result)
-                writer.writerow(row)
-                
-                # 3. Buffer for Aggregation & UX
-                all_results_buffer.append(result)
-                print("." if incons == 0 else "!", end="", flush=True)
+
+                writer.writerow(self._flatten_result_for_csv(result))
+                aggregator.process(result)
+                count += 1
+                logger.debug("Experiment result: inconsistencies=%s", incons)
 
         self.logger.info("Raw results streamed to %s", csv_path)
-        
-        # Generate Aggregated Metrics
-        self._save_aggregated_metrics(all_results_buffer)
-        
-        return {"total_experiments": len(all_results_buffer)}
+
+        # Save aggregated metrics from O(1) memory aggregator
+        json_path = self.output_dir / "aggregated_metrics.json"
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(aggregator.build_metrics(), f, indent=2)
+        self.logger.info("Saved aggregated metrics to %s", json_path)
+
+        return {"total_experiments": count}
 
     async def _experiment_generator(self) -> AsyncGenerator[Dict[str, Any], None]:
         """
@@ -175,39 +262,3 @@ class ParametricABTestRunner:
             "failure_rate": res["failure_rate"]
         }
 
-    def _save_aggregated_metrics(self, results: List[Dict]):
-        metrics = {}
-        by_rate = defaultdict(list)
-        for r in results: by_rate[r["failure_rate"]].append(r)
-            
-        for rate, group in by_rate.items():
-            rate_key = str(rate)
-            baseline_runs = [r for r in group if r["agent_type"] == "baseline"]
-            playbook_runs = [r for r in group if r["agent_type"] == "playbook"]
-            
-            def calc_stats(runs):
-                if not runs: return {}
-                successes = sum(1 for r in runs if r["status"] == "success")
-                latencies = [r["duration_ms"] for r in runs]
-                inconsistencies = [r.get("inconsistencies_count", 0) for r in runs]
-                
-                mean_incons = sum(inconsistencies) / len(runs) if runs else 0.0
-                
-                return {
-                    "n_runs": len(runs),
-                    "success_rate": {"mean": successes / len(runs), "std": 0.0},
-                    "duration_s": {"mean": (sum(latencies)/len(latencies))/1000 if latencies else 0, "std": 0.0},
-                    "inconsistencies": {"mean": mean_incons, "std": 0.0}
-                }
-
-            metrics[rate_key] = {
-                "failure_rate": rate,
-                "n_experiments": len(group) // 2,
-                "baseline": calc_stats(baseline_runs),
-                "playbook": calc_stats(playbook_runs)
-            }
-            
-        json_path = self.output_dir / "aggregated_metrics.json"
-        with open(json_path, "w") as f:
-            json.dump(metrics, f, indent=2)
-        self.logger.info("Saved aggregated metrics to %s", json_path)

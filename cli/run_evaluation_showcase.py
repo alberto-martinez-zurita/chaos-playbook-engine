@@ -35,7 +35,7 @@ from chaos_engine.core.config import load_config
 from chaos_engine.core.logging import setup_logger
 
 # Ensure the agent module is loaded for patching
-import chaos_engine.agents.order_agent
+import chaos_engine._legacy.agents.order_agent
 
 async def run_showcase():
     # 1. Basic Configuration
@@ -93,7 +93,7 @@ async def run_showcase():
 
     try:
         # A) Patch the network of the specific agent
-        with patch('chaos_engine.agents.order_agent.chaos_proxy.send_request', side_effect=mock_network_response):
+        with patch('chaos_engine._legacy.agents.order_agent.chaos_proxy.send_request', side_effect=mock_network_response):
             
             # B) Patch the Evaluator to force a single execution (Determinism)
             original_eval_func = AgentEvaluator.evaluate_eval_set
@@ -107,7 +107,7 @@ async def run_showcase():
             with patch.object(AgentEvaluator, 'evaluate_eval_set', side_effect=patched_eval):
                 
                 result = await AgentEvaluator.evaluate(
-                    agent_module="chaos_engine.agents.order_agent",
+                    agent_module="chaos_engine._legacy.agents.order_agent",
                     eval_dataset_file_path_or_dir=tmp_path
                 )
                 

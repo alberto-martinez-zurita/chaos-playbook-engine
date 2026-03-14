@@ -20,7 +20,7 @@ if str(src_path) not in sys.path:
 from chaos_engine.chaos.proxy import ChaosProxy
 from chaos_engine.core.playbook_storage import PlaybookStorage
 from chaos_engine.tools import playbook_tools, petstore_tools
-from chaos_engine.agents.order_agent import create_order_agent
+from chaos_engine._legacy.agents.order_agent import create_order_agent
 from chaos_engine.agents.playbook_creator_agent import create_playbook_creator_agent
 from chaos_engine.core.config import load_config, get_model_name
 

@@ -45,7 +45,7 @@ from chaos_engine.core.config import load_config
 from google.adk.evaluation.agent_evaluator import AgentEvaluator
 
 # Module to test
-import chaos_engine.agents.order_agent as order_agent_module
+import chaos_engine._legacy.agents.order_agent as order_agent_module
 from chaos_engine.core.playbook_storage import PlaybookStorage
 from chaos_engine.chaos.proxy import ChaosProxy
 
@@ -145,7 +145,7 @@ async def run_single_eval_case(
                 print(f"   ⚡ ADK Eval: Rate={failure_rate:.2f}, PB={pb_path_obj.name}")
 
             result = await AgentEvaluator.evaluate(
-                agent_module="chaos_engine.agents.order_agent",
+                agent_module="chaos_engine._legacy.agents.order_agent",
                 eval_dataset_file_path_or_dir=tmp_path
             )
             

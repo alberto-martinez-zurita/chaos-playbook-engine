@@ -10,6 +10,6 @@ load_dotenv()
 async def test_agent_evaluation():
     # --- run evaluation ---
     result = await AgentEvaluator.evaluate(
-        agent_module="src.chaos_engine.agents.order_agent_evaluator",
+        agent_module="src.chaos_engine._legacy.agents.order_agent_evaluator",
         eval_dataset_file_path_or_dir="tests/integration/test_cases.json",
     )

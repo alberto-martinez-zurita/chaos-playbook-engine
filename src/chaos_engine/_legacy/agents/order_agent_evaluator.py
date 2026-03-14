@@ -4,10 +4,10 @@ from google.adk.agents import LlmAgent
 from google.adk.models.google_llm import Gemini
 from google.genai import types
 
-from ..agents.order_agent import create_order_agent
-from ..chaos.proxy import ChaosProxy
-from ..core.playbook_storage import PlaybookStorage
-from ..core.config import load_config, get_model_name
+from chaos_engine._legacy.agents.order_agent import create_order_agent
+from chaos_engine.chaos.proxy import ChaosProxy
+from chaos_engine.core.playbook_storage import PlaybookStorage
+from chaos_engine.core.config import load_config, get_model_name
 
 
  
