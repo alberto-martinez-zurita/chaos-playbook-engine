@@ -72,6 +72,26 @@ def _cmd_judge(args: argparse.Namespace) -> None:
     print(f"Candidate playbook saved to {output_path}")
 
 
+def _cmd_evolve(args: argparse.Namespace) -> None:
+    """Run playbook evolution (mutation + selection)."""
+    from chaos_engine.simulation.mutation import PlaybookEvolver
+
+    evolver = PlaybookEvolver(
+        base_playbook_path=args.playbook,
+        failure_rates=args.failure_rates,
+        experiments_per_rate=args.experiments_per_rate,
+        seed=args.seed,
+        output_dir=args.output_dir,
+        mutation_rate=args.mutation_rate,
+    )
+    best = asyncio.run(evolver.evolve(
+        generations=args.generations,
+        variants_per_gen=args.variants,
+    ))
+    print(f"Best variant: {best.variant_id} (score={best.score:.2f}, success={best.success_rate:.1%})")
+    print(f"Saved to {args.output_dir}/best_playbook.json")
+
+
 def _cmd_registry_list(args: argparse.Namespace) -> None:
     """List all registered playbook versions."""
     from chaos_engine.core.playbook_registry import PlaybookRegistry
@@ -146,6 +166,18 @@ def build_parser() -> argparse.ArgumentParser:
     judge.add_argument("--compare", help="Existing playbook to compare against")
     judge.add_argument("--min-samples", type=int, default=5, help="Min samples per pattern")
     judge.set_defaults(func=_cmd_judge)
+
+    # --- evolve ---
+    evolve = subparsers.add_parser("evolve", help="Evolve playbook via mutation and selection")
+    evolve.add_argument("--playbook", required=True, help="Base playbook to evolve")
+    evolve.add_argument("--failure-rates", type=float, nargs="+", default=[0.1, 0.3, 0.5])
+    evolve.add_argument("--experiments-per-rate", type=int, default=20)
+    evolve.add_argument("--generations", type=int, default=3, help="Number of evolution generations")
+    evolve.add_argument("--variants", type=int, default=4, help="Variants per generation")
+    evolve.add_argument("--mutation-rate", type=float, default=0.3, help="Probability of mutating each entry")
+    evolve.add_argument("--seed", type=int, default=42)
+    evolve.add_argument("--output-dir", default="reports/evolution")
+    evolve.set_defaults(func=_cmd_evolve)
 
     # --- registry ---
     reg = subparsers.add_parser("registry", help="Manage playbook versions")
