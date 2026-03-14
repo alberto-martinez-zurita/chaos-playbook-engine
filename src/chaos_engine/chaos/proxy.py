@@ -1,16 +1,15 @@
 """
 Chaos Proxy - Middleware for Chaos Injection.
-
 """
-import random
-import httpx
+from __future__ import annotations
+
 import json
 import logging
-import time
-from typing import Dict, Any, Optional
+import random
 from pathlib import Path
+from typing import Any, Dict, Optional
 
-import math
+import httpx
 
 class ChaosProxy:
     def __init__(self, failure_rate: float, seed: int, mock_mode: bool = False, verbose: bool = False):
@@ -36,11 +35,11 @@ class ChaosProxy:
                 with open(json_path, 'r', encoding='utf-8') as f:
                     return json.load(f)
 
-            self.logger.warning(f"⚠️ http_error_codes.json not found at {json_path}. Using fallback.")
+            self.logger.warning("http_error_codes.json not found at %s. Using fallback.", json_path)
             return {"500": "Internal Server Error (Fallback)", "503": "Service Unavailable (Fallback)"}
-                
-        except Exception as e:
-            self.logger.warning(f"⚠️ Error loading http_error_codes.json: {e}")
+
+        except Exception:
+            self.logger.warning("Error loading http_error_codes.json", exc_info=True)
             return {"500": "Internal Server Error (Fallback)", "503": "Service Unavailable (Fallback)"}
 
     def calculate_jittered_backoff(self, seconds: float) -> float:
@@ -70,34 +69,41 @@ class ChaosProxy:
             error_code = self.rng.choice(keys)
             error_msg = self.error_codes.get(error_code, "Unknown Error")
             
-            self.logger.info(f"🔥 CHAOS INJECTED: Simulating {error_code} on {endpoint}")
+            self.logger.info("CHAOS INJECTED: Simulating %s on %s", error_code, endpoint)
             return {"status": "error", "code": int(error_code), "message": f"Simulated Chaos: {error_msg}"}
 
         # 2. Mock Mode
         if self.mock_mode:
-            self.logger.info(f"🎭 MOCK API CALL: {method} {endpoint} (Skipping network)")
+            self.logger.info("MOCK API CALL: %s %s (Skipping network)", method, endpoint)
             return self._generate_mock_response(method, endpoint)
         
         # 3. Real API Call
-        self.logger.info(f"🌐 REAL API CALL: {method} {endpoint}")
+        self.logger.info("REAL API CALL: %s %s", method, endpoint)
+        url = f"{self.base_url}{endpoint}"
         async with httpx.AsyncClient() as client:
             try:
                 if method == "GET":
-                    resp = await client.get(f"{self.base_url}{endpoint}", params=params, timeout=10.0)
+                    resp = await client.get(url, params=params, timeout=10.0)
                 elif method == "POST":
-                    resp = await client.post(f"{self.base_url}{endpoint}", json=json_body, timeout=10.0)
+                    resp = await client.post(url, json=json_body, timeout=10.0)
                 elif method == "PUT":
-                    resp = await client.put(f"{self.base_url}{endpoint}", json=json_body, timeout=10.0)
-                
+                    resp = await client.put(url, json=json_body, timeout=10.0)
+                elif method == "DELETE":
+                    resp = await client.delete(url, timeout=10.0)
+                elif method == "PATCH":
+                    resp = await client.patch(url, json=json_body, timeout=10.0)
+                else:
+                    raise ValueError(f"Unsupported HTTP method: {method}")
+
                 if resp.status_code >= 400:
-                    self.logger.warning(f"❌ API Error {resp.status_code}: {resp.text[:100]}")
+                    self.logger.warning("API Error %d: %s", resp.status_code, resp.text[:100])
                     return {"status": "error", "code": resp.status_code, "message": resp.text}
-                
+
                 return {"status": "success", "code": resp.status_code, "data": resp.json()}
-            
+
             except Exception as e:
-                 self.logger.error(f"💥 Network Exception: {str(e)}")
-                 return {"status": "error", "code": 500, "message": str(e)}
+                self.logger.error("Network Exception: %s", e)
+                return {"status": "error", "code": 500, "message": str(e)}
 
     def _generate_mock_response(self, method: str, endpoint: str) -> Dict[str, Any]:
         if "inventory" in endpoint:

@@ -2,6 +2,8 @@
 CLI entry point for Dashboard Generation.
 Wraps the reporting engine logic.
 """
+from __future__ import annotations
+
 import sys
 from pathlib import Path
 

@@ -2,11 +2,13 @@
 Evaluation Runner - Validates agent against defined test cases.
 Updated with Observability (Logging) and Phase 6 Dependency Injection.
 """
+from __future__ import annotations
+
 import json
-import time
 import logging
-from typing import Dict, List, Any
-from dataclasses import dataclass, asdict
+import time
+from dataclasses import asdict, dataclass
+from typing import Any, Dict, List
 
 # Imports for Dependency Injection
 from chaos_engine.agents.petstore import PetstoreAgent
@@ -62,17 +64,17 @@ class EvaluationRunner:
         with open(suite_path, 'r', encoding='utf-8') as f:
             suite = json.load(f)
             
-        self.logger.info(f"🧪 STARTING SUITE: {suite['name']}")
-        self.logger.info(f"⚙️  MODE: {'MOCK (Offline)' if self.mock_mode else 'REAL API'}")
+        self.logger.info("STARTING SUITE: %s", suite["name"])
+        self.logger.info("MODE: %s", "MOCK (Offline)" if self.mock_mode else "REAL API")
         
         results = []
         for case in suite['test_cases']:
-            self.logger.info(f"\n🔹 Running Case: {case['id']} ({case['description']})")
+            self.logger.info("Running Case: %s (%s)", case["id"], case["description"])
             result = await self._run_single_case(case)
             results.append(result)
             
             icon = "✅" if result.passed else "❌"
-            self.logger.info(f"   Result: {icon} {result.reason} ({result.duration:.2f}s)")
+            self.logger.info("   Result: %s %s (%.2fs)", icon, result.reason, result.duration)
             
         return results
 

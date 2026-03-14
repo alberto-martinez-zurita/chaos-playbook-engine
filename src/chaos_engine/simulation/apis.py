@@ -5,10 +5,11 @@ This module provides simulated implementations of external APIs used by the
 OrderOrchestratorAgent.
 
 UNIFICATION UPDATE:
-Now accepts an optional `chaos_proxy` instance to support stateful chaos 
+Now accepts an optional `chaos_proxy` instance to support stateful chaos
 (continuous random sequence) across an entire experiment workflow.
 Fallbacks to salted-seed ephemeral proxies if no instance is provided.
 """
+from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone

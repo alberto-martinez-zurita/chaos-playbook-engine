@@ -6,7 +6,7 @@ Location: experiments/aggregate_metrics.py
 Purpose: Calculate and compare metrics between Baseline and Playbook agents.
 
 V4 CHANGES:
-- Migrated from "Inconsistency Reduction" to "Consistency Improvement" 
+- Migrated from "Inconsistency Reduction" to "Consistency Improvement"
 - More intuitive metric direction (all improvements are positive increases)
 - Mathematically equivalent validation logic
 - All existing tests remain compatible (consistency = 1 - inconsistency)
@@ -14,7 +14,7 @@ V4 CHANGES:
 Rationale:
 With consistency metric, ALL KPIs move in same direction:
 - Success Rate: ↑ better
-- Consistency Rate: ↑ better  
+- Consistency Rate: ↑ better
 - Latency: managed overhead
 
 Usage:
@@ -24,11 +24,12 @@ Usage:
     comparison = aggregator.compare_baseline_vs_playbook(baseline_results, playbook_results)
     aggregator.export_summary_json(comparison, "metrics_summary.json")
 """
+from __future__ import annotations
 
 import json
 import math
-from typing import Any, Dict, List
 from dataclasses import dataclass, field
+from typing import Any, Dict, List
 
 @dataclass
 class ExperimentResult:

@@ -5,36 +5,28 @@ Executes the same 4-step Petstore workflow as PetstoreAgent but replaces
 LLM reasoning with deterministic strategy execution. Uses the real
 infrastructure stack: ChaosProxy, CircuitBreakerProxy, and playbook lookup.
 """
+from __future__ import annotations
 
 import asyncio
 import json
-import time
 import logging
-from pathlib import Path
-from typing import Dict, Any, Optional, List, Tuple, Protocol, runtime_checkable
+import time
+from typing import Any, Dict, Final, Optional, Tuple
 
-
-@runtime_checkable
-class Executor(Protocol):
-    """Same contract as resilience.Executor — satisfied by ChaosProxy and CircuitBreakerProxy."""
-
-    async def send_request(
-        self, method: str, endpoint: str,
-        params: Optional[Dict] = None, json_body: Optional[Dict] = None
-    ) -> Dict[str, Any]: ...
-
-    def calculate_jittered_backoff(self, seconds: float) -> float: ...
+from chaos_engine.core.protocols import Executor
 
 
 # Step definition: (result_name, playbook_tool_name, http_method, endpoint, params, json_body)
-WORKFLOW_STEPS: List[Tuple[str, str, str, str, Optional[Dict], Optional[Dict]]] = [
+WORKFLOW_STEPS: Final[tuple[
+    tuple[str, str, str, str, Optional[Dict], Optional[Dict]], ...
+]] = (
     ("get_inventory", "get_inventory", "GET", "/store/inventory", None, None),
     ("find_pets_by_status", "find_pets_by_status", "GET", "/pet/findByStatus", {"status": "available"}, None),
     ("place_order", "place_order", "POST", "/store/order",
      None, {"petId": 12345, "quantity": 1, "status": "placed", "complete": False}),
     ("update_pet_status", "update_pet_status", "PUT", "/pet",
      None, {"id": 12345, "name": "MockPet", "status": "sold", "photoUrls": []}),
-]
+)
 
 
 class DeterministicAgent:
@@ -61,8 +53,8 @@ class DeterministicAgent:
         try:
             with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception as e:
-            logging.getLogger("DeterministicAgent").warning(f"Error loading playbook {path}: {e}")
+        except Exception:
+            logging.getLogger("DeterministicAgent").warning("Error loading playbook %s", path, exc_info=True)
             return {}
 
     async def run(self) -> Dict[str, Any]:
@@ -119,7 +111,7 @@ class DeterministicAgent:
 
         if self.verbose:
             self.logger.info(
-                f"  [{tool_name}] Error {error_code} -> strategy: {strategy}"
+                "  [%s] Error %s -> strategy: %s", tool_name, error_code, strategy
             )
 
         if strategy in ("fail_fast", "escalate_to_human"):

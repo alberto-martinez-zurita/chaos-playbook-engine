@@ -3,23 +3,19 @@ ParametricABTestRunner - Orchestrator for multi-rate experiments.
 Updated with DEBUGGING for Inconsistency Calculation.
 REFACTORED: Streaming/Generator pattern for GreenOps compliance.
 """
+from __future__ import annotations
 
 import asyncio
 import csv
 import json
-import time
 import logging
-from pathlib import Path
-from typing import List, Dict, Any, Optional, AsyncGenerator
+import time
 from collections import defaultdict
 from datetime import datetime
+from pathlib import Path
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
-try:
-    from chaos_engine.simulation.runner import ABTestRunner
-except ImportError:
-    import sys
-    sys.path.append(str(Path(__file__).parent.parent))
-    from chaos_engine.simulation.runner import ABTestRunner
+from chaos_engine.simulation.runner import ABTestRunner
 
 class ParametricABTestRunner:
     def __init__(
@@ -46,11 +42,10 @@ class ParametricABTestRunner:
         self.logger = logger or logging.getLogger(__name__)
 
     async def run_parametric_experiments(self) -> Dict[str, Any]:
-        self.logger.info(f"\n🚀 Starting parametric experiments...")
-        print(f"\n🚀 Starting parametric experiments...")
-        print(f"   Failure rates: {self.failure_rates}")
-        print(f"   Experiments per rate: {self.experiments_per_rate}")
-        print(f"   Total: {len(self.failure_rates) * self.experiments_per_rate * 2} runs")
+        self.logger.info("Starting parametric experiments...")
+        self.logger.info("Failure rates: %s", self.failure_rates)
+        self.logger.info("Experiments per rate: %d", self.experiments_per_rate)
+        self.logger.info("Total: %d runs", len(self.failure_rates) * self.experiments_per_rate * 2)
         
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
@@ -84,7 +79,7 @@ class ParametricABTestRunner:
                 all_results_buffer.append(result)
                 print("." if incons == 0 else "!", end="", flush=True)
 
-        self.logger.info(f"\n\n💾 Raw results streamed to {csv_path}")
+        self.logger.info("Raw results streamed to %s", csv_path)
         
         # Generate Aggregated Metrics
         self._save_aggregated_metrics(all_results_buffer)
@@ -97,11 +92,10 @@ class ParametricABTestRunner:
         Reduces cognitive complexity of the main runner and enables streaming.
         """
         for i, rate in enumerate(self.failure_rates):
-            self.logger.info(f"\n[{i+1}/{len(self.failure_rates)}] Testing failure_rate={rate:.2f}")
-            print(f"\n[{i+1}/{len(self.failure_rates)}] Testing failure_rate={rate:.2f}")
+            self.logger.info("[%d/%d] Testing failure_rate=%.2f", i + 1, len(self.failure_rates), rate)
             
             # 1. Baseline Experiments
-            self.logger.info(f"  Running {self.experiments_per_rate} Baseline experiments...")
+            self.logger.info("  Running %d Baseline experiments...", self.experiments_per_rate)
             for j in range(self.experiments_per_rate):
                 seed = self.base_seed + (i * 1000) + j
                 
@@ -116,14 +110,13 @@ class ParametricABTestRunner:
                 result["failure_rate"] = rate
                 result["seed"] = seed
                 
-                if j % 5 == 0: 
-                    self.logger.debug(f"    Baseline run {j} completed")
+                if j % 5 == 0:
+                    self.logger.debug("    Baseline run %d completed", j)
                 
                 yield result
 
             # 2. Playbook Experiments
-            self.logger.info(f"  Running {self.experiments_per_rate} Playbook experiments...")
-            print(f"  Running {self.experiments_per_rate} Playbook experiments...")
+            self.logger.info("  Running %d Playbook experiments...", self.experiments_per_rate)
             for j in range(self.experiments_per_rate):
                 seed = self.base_seed + (i * 1000) + j 
                 
@@ -139,11 +132,11 @@ class ParametricABTestRunner:
                 result["seed"] = seed
                 
                 if j % 5 == 0:
-                    self.logger.debug(f"    Playbook run {j} completed")
+                    self.logger.debug("    Playbook run %d completed", j)
                 
                 yield result
             
-            self.logger.info(f"   ✅ Completed batch for rate {rate}")
+            self.logger.info("   Completed batch for rate %s", rate)
 
     def _calculate_inconsistency(self, result: Dict) -> int:
         """
@@ -157,7 +150,7 @@ class ParametricABTestRunner:
         
         # Debug visual si falla la detección
         if not failed_at and result["status"] == "failure":
-            self.logger.warning(f"⚠️ Result marked failure but failed_at is empty: {result}")
+            self.logger.warning("Result marked failure but failed_at is empty: %s", result)
 
         # Lógica de negocio:
         # get_inventory/find_pets_by_status fail -> Safe (0)
@@ -217,4 +210,4 @@ class ParametricABTestRunner:
         json_path = self.output_dir / "aggregated_metrics.json"
         with open(json_path, "w") as f:
             json.dump(metrics, f, indent=2)
-        self.logger.info(f"💾 Saved aggregated metrics to {json_path}")
+        self.logger.info("Saved aggregated metrics to %s", json_path)

@@ -1,4 +1,6 @@
-from typing import TypedDict, List, Dict, Any
+from __future__ import annotations
+
+from typing import Any, Dict, List, TypedDict
 from google.adk.agents import LlmAgent
 from ..tools import petstore_tools
 from ..tools.playbook_tools import get_playbook, add_scenario_to_playbook

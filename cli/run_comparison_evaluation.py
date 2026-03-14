@@ -18,6 +18,7 @@ Usage:
       --experiments-per-rate 1 \
       --seed 42
 """
+from __future__ import annotations
 
 import sys
 import argparse

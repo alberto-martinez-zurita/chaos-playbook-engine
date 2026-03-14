@@ -15,9 +15,10 @@ Matrix-style schema:
   }
 }
 """
+from __future__ import annotations
 
-import json
 from typing import Dict, TypedDict
+
 from ..core.playbook_storage import PlaybookStorage
 
 
@@ -70,9 +71,8 @@ async def add_scenario_to_playbook(
     # Save scenario under the status code as string
     playbook[api][str(status_code)] = strategy_payload
 
-    # Save to disk
-    with open(storage.file_path, "w", encoding="utf-8") as f:
-        json.dump(playbook, f, indent=2)
+    # Save via storage (respects asyncio.Lock)
+    await storage.save_playbook(playbook)
 
     return {"message": f"Scenario added for {api} [{status_code}]"}
 

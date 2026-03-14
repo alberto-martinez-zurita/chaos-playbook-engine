@@ -1,6 +1,8 @@
 """
 CLI script to run parametric experiments.
 """
+from __future__ import annotations
+
 import sys
 import asyncio
 import argparse
@@ -36,20 +38,10 @@ def main():
     logger.info("="*70)
     logger.info("PARAMETRIC EXPERIMENT CONFIGURATION")
     logger.info("="*70)
-    logger.info(f"Failure Rates: {args.failure_rates}")
-    logger.info(f"Experiments per rate: {args.experiments_per_rate}")
-    logger.info(f"Total experiments: {len(args.failure_rates) * args.experiments_per_rate * 2} (Baseline + Playbook)")
-    logger.info(f"Output directory: {output_dir}")
-    logger.info("="*70 + "\n")
-
-    print("="*70)
-    print("PARAMETRIC EXPERIMENT CONFIGURATION")
-    print("="*70)
-    print(f"Failure Rates: {args.failure_rates}")
-    print(f"Experiments per rate: {args.experiments_per_rate}")
-    print(f"Total experiments: {len(args.failure_rates) * args.experiments_per_rate * 2} (Baseline + Playbook)")
-    print(f"Output directory: {output_dir}")
-    print("="*70 + "\n")
+    logger.info("Failure Rates: %s", args.failure_rates)
+    logger.info("Experiments per rate: %d", args.experiments_per_rate)
+    logger.info("Total experiments: %d (Baseline + Playbook)", len(args.failure_rates) * args.experiments_per_rate * 2)
+    logger.info("Output directory: %s", output_dir)
 
     runner = ParametricABTestRunner(
         failure_rates=args.failure_rates,

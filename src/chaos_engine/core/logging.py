@@ -1,10 +1,12 @@
 """
 Logging Setup Module - Centralized logging configuration (Anti-Duplication).
 """
+from __future__ import annotations
+
 import logging
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 def setup_logger(name: str = None, verbose: bool = False, log_dir: str = "logs"):
     """

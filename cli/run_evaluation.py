@@ -1,6 +1,8 @@
 """
 CLI entry point for Agent Evaluation with Observability.
 """
+from __future__ import annotations
+
 import sys
 import asyncio
 import argparse

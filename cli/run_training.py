@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from google.adk.agents import LlmAgent, LoopAgent
 from google.adk.models.google_llm import Gemini
 from google.adk.runners import InMemoryRunner

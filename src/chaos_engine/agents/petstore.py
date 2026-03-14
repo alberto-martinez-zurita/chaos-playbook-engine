@@ -4,14 +4,15 @@ PetstoreAgent - Real API Chaos Implementation (Phase 6)
 FINAL VERSION: Dependency Injection (DI) Applied.
 Corrige el acoplamiento y el error de sintaxis.
 """
+from __future__ import annotations
 
 import asyncio
 import json
-import time
-import os
 import logging
-from typing import Dict, Any, Set, Protocol, runtime_checkable, Optional, List, Type
-from pathlib import Path
+import os
+import time
+from typing import Any, Dict, List, Optional, Protocol, Set, Type, runtime_checkable
+
 from dotenv import load_dotenv
 
 # Framework
@@ -20,18 +21,9 @@ from google.adk.models.google_llm import Gemini
 from google.adk.runners import InMemoryRunner
 
 # Core Logic
-# Importamos la implementación para tipado
-from chaos_engine.chaos.proxy import ChaosProxy 
 from chaos_engine.core.config import load_config, get_model_name
+from chaos_engine.core.protocols import Executor
 
-# ====================================================================
-# ✅ PILAR III: PROTOCOLOS DE INTERFAZ (Contratos)
-# ====================================================================
-
-@runtime_checkable
-class ToolExecutor(Protocol):
-    async def send_request(self, method: str, endpoint: str, params: Optional[Dict] = None, json_body: Optional[Dict] = None) -> Dict[str, Any]:
-        ...
 
 @runtime_checkable
 class LLMClientConstructor(Protocol):
@@ -44,13 +36,13 @@ class PetstoreAgent:
     """
 
     def __init__(
-        self, 
-        playbook_path: str, 
-        tool_executor: ToolExecutor,             
-        llm_client_constructor: Type[Gemini],    
+        self,
+        playbook_path: str,
+        tool_executor: Executor,
+        llm_client_constructor: Type[Gemini],
         model_name: str,
         verbose: bool = False,
-        mock_mode: bool = None 
+        mock_mode: bool = None,
     ):
         # 1. CARGA EXPLÍCITA DE CREDENCIALES Y CONFIG
         load_dotenv() 
@@ -72,9 +64,10 @@ class PetstoreAgent:
 
     def _load_playbook(self) -> Dict:
         try:
-            return json.load(open(self.playbook_path, 'r', encoding='utf-8'))
-        except Exception as e:
-            self.logger.error(f"⚠️ Error loading playbook {self.playbook_path}: {e}")
+            with open(self.playbook_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            self.logger.error("Error loading playbook %s", self.playbook_path, exc_info=True)
             return {}
 
     # ====================================================================
@@ -117,8 +110,8 @@ class PetstoreAgent:
         # self.executor es el ChaosProxy (o Circuit Breaker), que implementa el método.
         jittered_seconds = self.executor.calculate_jittered_backoff(seconds)
         
-        if self.verbose: 
-            self.logger.info(f"⏳ WAIT STRATEGY: Base {seconds:.2f}s -> Jittered {jittered_seconds:.2f}s")
+        if self.verbose:
+            self.logger.info("WAIT STRATEGY: Base %.2fs -> Jittered %.2fs", seconds, jittered_seconds)
         
         # Usar el tiempo aleatorio
         await asyncio.sleep(jittered_seconds) 
@@ -128,7 +121,7 @@ class PetstoreAgent:
 
     async def lookup_playbook(self, tool_name: str, error_code: str) -> Dict[str, Any]:
         """Consults the Chaos Playbook."""
-        if self.verbose: self.logger.info(f"📖 PLAYBOOK LOOKUP: {tool_name} -> {error_code}")
+        if self.verbose: self.logger.info("PLAYBOOK LOOKUP: %s -> %s", tool_name, error_code)
         tool_config = self.playbook_data.get(tool_name, {})
         strategy = tool_config.get(str(error_code))
         if strategy:
@@ -138,7 +131,7 @@ class PetstoreAgent:
 
     async def report_workflow_failure(self, reason: str = "Unknown failure") -> dict:
         """Call if you cannot proceed."""
-        if self.verbose: self.logger.error(f"💀 FAILURE REPORTED: {reason}")
+        if self.verbose: self.logger.error("FAILURE REPORTED: %s", reason)
         return {"status": "success", "message": "Failure reported"}
 
     def get_tool_list(self) -> List:
@@ -229,7 +222,7 @@ class PetstoreAgent:
             status = "success" if is_complete else "failure"
             
             if self.verbose:
-                print(f"🔍 DEBUG: Pasos completados: {len(self.successful_steps)}/4 -> {status}")
+                self.logger.debug("Pasos completados: %d/4 -> %s", len(self.successful_steps), status)
             
             return {
                 "status": status,
@@ -239,8 +232,7 @@ class PetstoreAgent:
             }
 
         except Exception as e:
-            # Este es el bloque que faltaba en el archivo original
-            if self.verbose: self.logger.error(f"❌ Excepción en runner: {e}")
+            self.logger.exception("Runner exception during process_order")
             return {
                 "status": "failure",
                 "steps_completed": list(self.successful_steps), 

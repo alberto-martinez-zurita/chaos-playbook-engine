@@ -5,13 +5,15 @@ Updates:
 - CSS improvements for compact tables (no scrollbars).
 - Professional UI enhancements.
 """
-import json
+from __future__ import annotations
+
 import argparse
-import sys
+import json
 import logging
-from pathlib import Path
-from typing import Dict, List, Any
+import sys
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -258,7 +260,7 @@ def generate_dashboard(metrics_path: Path, output_path: Path):
         with open(output_path, 'w', encoding='utf-8') as f: f.write(html)
         print(f"✅ Dashboard saved to: {output_path}")
     except Exception as e:
-        logger.error(f"Render failed: {e}")
+        logger.error("Render failed: %s", e)
         raise
 
 def main():

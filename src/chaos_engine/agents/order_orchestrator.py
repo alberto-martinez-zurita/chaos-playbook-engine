@@ -21,6 +21,7 @@ Phase 3 Enhancement:
 - loadprocedure tool enables agent to query Chaos Playbook for known solutions
 - PlaybookStorage provides JSON-based persistence for chaos procedures
 """
+from __future__ import annotations
 
 import asyncio
 from datetime import datetime

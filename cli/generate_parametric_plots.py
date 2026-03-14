@@ -22,6 +22,7 @@ Features:
 - Side-by-side agent comparison
 - Export as PNG (high-resolution)
 """
+from __future__ import annotations
 
 import argparse
 import json

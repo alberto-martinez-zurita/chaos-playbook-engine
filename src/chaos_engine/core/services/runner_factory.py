@@ -6,6 +6,7 @@ This simplified approach provides reliable tool execution.
 Phase 1 uses InMemoryRunner instead of Runner + App pattern based on
 implementation learnings (see order_orchestrator.py docstring).
 """
+from __future__ import annotations
 
 import os
 from dotenv import load_dotenv

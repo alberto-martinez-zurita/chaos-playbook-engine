@@ -4,11 +4,13 @@
 Sistema de carga de configuración desde archivos YAML.
 Soporta múltiples entornos (dev/prod) con variables de entorno.
 """
+from __future__ import annotations
 
 import os
-import yaml
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
+import yaml
 from dotenv import load_dotenv
 
 class ConfigLoader:
@@ -39,7 +41,8 @@ class ConfigLoader:
             if cwd_config.exists():
                 self.config_dir = cwd_config
             else:
-                print(f"⚠️ Warning: Config dir not found at {self.config_dir}")
+                import logging
+            logging.getLogger(__name__).warning("Config dir not found at %s", self.config_dir)
         
     def load(self, environment: str = None) -> Dict[str, Any]:
         """

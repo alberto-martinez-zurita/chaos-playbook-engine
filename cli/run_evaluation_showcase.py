@@ -13,6 +13,7 @@ Its purpose is to demonstrate how the framework can:
 Usage:
     poetry run python cli/run_evaluation_showcase.py
 """
+from __future__ import annotations
 
 import sys
 import asyncio

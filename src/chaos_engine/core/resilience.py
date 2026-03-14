@@ -1,16 +1,14 @@
 """
 Resilience Utilities - Circuit Breaker Implementation.
 """
-import time
-import logging
-from typing import Dict, Any, Optional, Protocol, runtime_checkable
+from __future__ import annotations
 
-# Reuse the tool execution protocol.
-@runtime_checkable
-class Executor(Protocol):
-    async def send_request(self, method: str, endpoint: str, params: Optional[Dict] = None, json_body: Optional[Dict] = None) -> Dict[str, Any]: ...
-    # Add the method to the protocol to satisfy mypy (optional but good practice).
-    def calculate_jittered_backoff(self, seconds: float) -> float: ...
+import logging
+import time
+from typing import Any, Dict, Optional
+
+from chaos_engine.core.protocols import Executor
+
 
 class CircuitBreakerProxy:
     """
@@ -18,16 +16,17 @@ class CircuitBreakerProxy:
 
     If the number of consecutive failures exceeds the threshold, the circuit opens.
     """
-    
+
     def __init__(self, wrapped_executor: Executor, failure_threshold: int = 5, cooldown_seconds: int = 60):
         self._executor = wrapped_executor
         self._failure_threshold = failure_threshold
         self._cooldown_seconds = cooldown_seconds
-        
+
         # Circuit state
         self._failures = 0
         self._is_open = False
-        self._opened_timestamp = 0
+        self._half_open = False
+        self._opened_timestamp = 0.0
         self.logger = logging.getLogger("CircuitBreaker")
 
     def calculate_jittered_backoff(self, seconds: float) -> float:
@@ -38,21 +37,37 @@ class CircuitBreakerProxy:
         return seconds
 
     async def send_request(self, method: str, endpoint: str, params: Optional[Dict] = None, json_body: Optional[Dict] = None) -> Dict[str, Any]:
-        
+
         # 1. OPEN STATE (Protection)
         if self._is_open:
             if time.time() < self._opened_timestamp + self._cooldown_seconds:
-                self.logger.warning(f"🚨 CIRCUIT OPEN: Request to {endpoint} blocked (Cooldown active).")
-                # Immediately return a service unavailable error to improve MTTR.
+                self.logger.warning("CIRCUIT OPEN: Request to %s blocked (Cooldown active).", endpoint)
                 return {"status": "error", "code": 503, "message": "Circuit Breaker Open: Service is down."}
             else:
-                # Transition to "Half-Open" state to allow one test request.
+                # Transition to Half-Open: allow exactly one probe request.
+                self._half_open = True
                 self._is_open = False
-                self.logger.info("🔧 CIRCUIT HALF-OPEN: Allowing one test request.")
-        
-        # 2. Request Execution
+                self.logger.info("CIRCUIT HALF-OPEN: Allowing one probe request.")
+
+        # 1b. HALF-OPEN guard: only one request allowed
+        if self._half_open:
+            response = await self._executor.send_request(method, endpoint, params, json_body)
+            if response.get("status") == "error":
+                # Probe failed — reopen with fresh cooldown
+                self._half_open = False
+                self._is_open = True
+                self._opened_timestamp = time.time()
+                self.logger.warning("CIRCUIT RE-OPENED: Probe request failed on %s.", endpoint)
+            else:
+                # Probe succeeded — fully close
+                self._half_open = False
+                self._failures = 0
+                self.logger.info("CIRCUIT CLOSED: Probe request succeeded.")
+            return response
+
+        # 2. CLOSED STATE: Normal request execution
         response = await self._executor.send_request(method, endpoint, params, json_body)
-        
+
         # 3. State Handling
         if response.get("status") == "error":
             self._handle_failure()
@@ -61,16 +76,20 @@ class CircuitBreakerProxy:
 
         return response
 
-    def _handle_failure(self):
+    def _handle_failure(self) -> None:
         self._failures += 1
-        self.logger.debug(f"Failure count: {self._failures}/{self._failure_threshold}")
+        self.logger.debug("Failure count: %d/%d", self._failures, self._failure_threshold)
         if self._failures >= self._failure_threshold:
             self._is_open = True
             self._opened_timestamp = time.time()
-            self.logger.critical(f"🛑 CIRCUIT OPENED: {self._failure_threshold} consecutive failures. Cooldown for {self._cooldown_seconds}s.")
+            self.logger.critical(
+                "CIRCUIT OPENED: %d consecutive failures. Cooldown for %ds.",
+                self._failure_threshold,
+                self._cooldown_seconds,
+            )
 
-    def _handle_success(self):
+    def _handle_success(self) -> None:
         if self._failures > 0:
-            self.logger.info("✅ CIRCUIT RESET: Successful request.")
+            self.logger.info("CIRCUIT RESET: Successful request.")
             self._failures = 0
             self._is_open = False

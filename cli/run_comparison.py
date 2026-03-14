@@ -5,6 +5,7 @@ FINAL VERSION: Dependency Injection (DI) Implementation.
 Corrige el error de NameError en el bloque de excepción.
 Corrects the NameError in the exception block.
 """
+from __future__ import annotations
 
 import sys
 import argparse
@@ -18,7 +19,7 @@ from collections import defaultdict
 from datetime import datetime
 
 # Package imports
-from chaos_engine.agents.petstore import PetstoreAgent, ToolExecutor, LLMClientConstructor
+from chaos_engine.agents.petstore import PetstoreAgent, LLMClientConstructor
 from chaos_engine.chaos.proxy import ChaosProxy
 from chaos_engine.core.logging import setup_logger
 from chaos_engine.core.config import load_config, get_model_name
@@ -84,11 +85,11 @@ async def run_experiment_safe(
         steps = len(result.get("steps_completed", []))
         failed_at = result.get("failed_at", "N/A")
         
-        logger.debug(f"  Exp {experiment_id}: Outcome={outcome}, Steps={steps}, Time={result['duration_ms']:.0f}ms")
+        logger.debug("  Exp %s: Outcome=%s, Steps=%d, Time=%.0fms", experiment_id, outcome, steps, result["duration_ms"])
         
     except Exception as e:
         # Initialize 'steps' to avoid NameError
-        logger.error(f"  🔥 CRASH {experiment_id}: {str(e)[:100]}...")
+        logger.error("  CRASH %s", experiment_id, exc_info=True)
         outcome = "failure"
         steps = 0 # Guard clause for the return
         failed_at = "runner_crash"
@@ -184,7 +185,7 @@ def save_phase5_format(experiments: List[Dict], output_dir: Path, agent_labels: 
     with open(json_path, "w") as f:
         json.dump(dict(by_rate), f, indent=2)
         
-    logger.info(f"✅ Results saved to {output_dir}")
+    logger.info("Results saved to %s", output_dir)
 
 # ================================
 # MAIN LOGIC
@@ -209,10 +210,10 @@ async def run_comparison(args) -> bool:
     SAFE_DELAY_SECONDS = 10
     
     for rate in args.failure_rates:
-        logger.info(f"\n📊 Chaos Level: {rate:.0%}")
+        logger.info("Chaos Level: %.0f%%", rate * 100)
         
         # Agent A (Baseline)
-        logger.info(f"  👉 Agent A ({args.agent_a_label})...")
+        logger.info("  Agent A (%s)...", args.agent_a_label)
         for i in range(args.experiments_per_rate):
             seed = base_seed + i
 
@@ -237,7 +238,7 @@ async def run_comparison(args) -> bool:
         await asyncio.sleep(SAFE_DELAY_SECONDS)
 
         # Agent B (Playbook)
-        logger.info(f"  👉 Agent B ({args.agent_b_label})...")
+        logger.info("  Agent B (%s)...", args.agent_b_label)
         for i in range(args.experiments_per_rate):
             seed = base_seed + i
             

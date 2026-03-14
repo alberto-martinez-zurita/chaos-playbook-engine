@@ -14,12 +14,12 @@ DEBUG VERSION (Nov 23, 2025) - VERBOSE MODE ADDED:
 - Use --verbose flag in CLI to enable debugging
 
 """
+from __future__ import annotations
 
-import asyncio
 import random
 from dataclasses import dataclass, field
-from typing import Optional, Literal
 from datetime import datetime
+from typing import Literal, Optional
 
 
 @dataclass

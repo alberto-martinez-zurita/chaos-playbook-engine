@@ -4,6 +4,7 @@ Chaos Playbook Storage Module.
 Provides JSON-based storage for chaos recovery strategy matrix.
 Thread-safe operations with asyncio.Lock.
 """
+from __future__ import annotations
 
 import asyncio
 import json

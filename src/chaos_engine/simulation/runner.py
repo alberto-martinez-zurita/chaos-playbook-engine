@@ -4,11 +4,12 @@ ABTestRunner - Orchestrator for Parametric Simulation using DeterministicAgent.
 Refactored to use the real infrastructure stack (ChaosProxy, CircuitBreakerProxy,
 playbook lookup) instead of simulated API functions.
 """
+from __future__ import annotations
 
-import time
 import logging
-from typing import Dict, Any, Optional
+import time
 from pathlib import Path
+from typing import Any, Dict, Optional
 
 from chaos_engine.agents.deterministic import DeterministicAgent
 from chaos_engine.chaos.proxy import ChaosProxy
