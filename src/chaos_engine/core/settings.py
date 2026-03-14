@@ -21,6 +21,12 @@ class ExperimentSettings(BaseModel):
     default_seed: int = Field(default=42, ge=0)
 
 
+class CircuitBreakerSettings(BaseModel):
+    """Circuit breaker configuration constants."""
+    failure_threshold: int = Field(default=3, ge=1)
+    cooldown_seconds: int = Field(default=30, ge=1)
+
+
 class SimulationSettings(BaseModel):
     """Parametric simulation configuration."""
     failure_rates: list[float] = Field(default_factory=lambda: [0.0, 0.1, 0.2, 0.3])
@@ -29,6 +35,7 @@ class SimulationSettings(BaseModel):
     playbook_baseline: str = "assets/playbooks/baseline.json"
     playbook_training: str = "assets/playbooks/training.json"
     simulate_delays: bool = False
+    circuit_breaker: CircuitBreakerSettings = Field(default_factory=CircuitBreakerSettings)
 
     @field_validator("failure_rates", mode="before")
     @classmethod

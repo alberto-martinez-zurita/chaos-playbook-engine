@@ -42,6 +42,10 @@ jobs:
       - name: Lint with ruff
         run: poetry run ruff check src/ tests/
 
+      - name: Dependency audit
+        run: poetry run pip-audit --strict
+        continue-on-error: true
+
       - name: Run unit tests
         run: |
           poetry run python -m pytest tests/unit/ -v \

@@ -17,7 +17,11 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 from chaos_engine.agents.deterministic import DeterministicAgent
 from chaos_engine.chaos.proxy import ChaosProxy
 from chaos_engine.core.resilience import CircuitBreakerProxy
+from chaos_engine.core.settings import CircuitBreakerSettings
 from chaos_engine.core.types import Status, WorkflowStep
+
+# Default circuit breaker configuration (A.31: centralized constants)
+_DEFAULT_CB = CircuitBreakerSettings()
 
 logger = logging.getLogger(__name__)
 
@@ -236,8 +240,8 @@ class ParametricABTestRunner:
         )
         circuit_breaker = CircuitBreakerProxy(
             wrapped_executor=chaos_proxy,
-            failure_threshold=3,
-            cooldown_seconds=30,
+            failure_threshold=_DEFAULT_CB.failure_threshold,
+            cooldown_seconds=_DEFAULT_CB.cooldown_seconds,
         )
         agent = DeterministicAgent(
             tool_executor=circuit_breaker,
