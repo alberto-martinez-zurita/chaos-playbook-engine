@@ -25,7 +25,7 @@ from typing import Literal, Optional
 logger = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(slots=True)
 class ChaosConfig:
     """
     Configuration for chaos injection in simulated APIs.

@@ -8,7 +8,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-def setup_logger(name: str = None, verbose: bool = False, log_dir: str = "logs"):
+def setup_logger(name: str = None, verbose: bool = False, log_dir: str = "logs") -> logging.Logger:
     """
     Configura el sistema de logging globalmente (en el Root Logger).
     

@@ -57,10 +57,10 @@ class PetstoreAgent:
         self.logger = logging.getLogger("PetstoreAgent")
         self.mock_mode = mock_mode 
 
-        # 3. CARGA DE DATOS Y ESTADO
+        # 3. CARGA DE DATOS
         self.playbook_path = playbook_path
         self.playbook_data = self._load_playbook()
-        self.successful_steps: Set[str] = set()
+        self._successful_steps: Set[str] = set()
 
     def _load_playbook(self) -> Dict:
         try:
@@ -77,27 +77,27 @@ class PetstoreAgent:
     async def get_inventory(self) -> dict:
         """Returns a map of status codes to quantities."""
         res = await self.executor.send_request("GET", "/store/inventory")
-        if res.get("status") == "success": self.successful_steps.add("get_inventory")
+        if res.get("status") == "success": self._successful_steps.add("get_inventory")
         return res
 
     async def find_pets_by_status(self, status: str = "available") -> dict:
         """Finds Pets by status."""
         res = await self.executor.send_request("GET", "/pet/findByStatus", params={"status": status})
-        if res.get("status") == "success": self.successful_steps.add("find_pets_by_status")
+        if res.get("status") == "success": self._successful_steps.add("find_pets_by_status")
         return res
 
     async def place_order(self, pet_id: int, quantity: int) -> dict:
         """Place an order for a pet. REQUIRES valid pet_id from find_pets."""
         body = {"petId": pet_id, "quantity": quantity, "status": "placed", "complete": False}
         res = await self.executor.send_request("POST", "/store/order", json_body=body)
-        if res.get("status") == "success": self.successful_steps.add("place_order")
+        if res.get("status") == "success": self._successful_steps.add("place_order")
         return res
 
     async def update_pet_status(self, pet_id: int, name: str, status: str) -> dict:
         """Update pet status. REQUIRES valid pet_id."""
         body = {"id": pet_id, "name": name, "status": status, "photoUrls": []}
         res = await self.executor.send_request("PUT", "/pet", json_body=body)
-        if res.get("status") == "success": self.successful_steps.add("update_pet_status")
+        if res.get("status") == "success": self._successful_steps.add("update_pet_status")
         return res
 
     async def wait_seconds(self, seconds: float) -> dict:
@@ -147,7 +147,7 @@ class PetstoreAgent:
 
     async def process_order(self, order_id: str, failure_rate: float, seed: int) -> Dict[str, Any]:
         
-        self.successful_steps = set() # Reinicio de estado
+        self._successful_steps = set() # Reinicio de estado
         
         adk_agent = LlmAgent(
             name="PetstoreChaosAgent",
@@ -217,16 +217,16 @@ class PetstoreAgent:
             
             # ✅ VALIDACIÓN DE ÉXITO FINAL (Código Python, no LLM)
             REQUIRED_STEPS = {"get_inventory", "find_pets_by_status", "place_order", "update_pet_status"}
-            is_complete = REQUIRED_STEPS.issubset(self.successful_steps)
+            is_complete = REQUIRED_STEPS.issubset(self._successful_steps)
             
             status = "success" if is_complete else "failure"
             
             if self.verbose:
-                self.logger.debug("Pasos completados: %d/4 -> %s", len(self.successful_steps), status)
+                self.logger.debug("Pasos completados: %d/4 -> %s", len(self._successful_steps), status)
             
             return {
                 "status": status,
-                "steps_completed": list(self.successful_steps), 
+                "steps_completed": list(self._successful_steps), 
                 "failed_at": "unknown" if status == "success" else "incomplete_workflow",
                 "duration_ms": duration_ms
             }
@@ -235,7 +235,7 @@ class PetstoreAgent:
             self.logger.exception("Runner exception during process_order")
             return {
                 "status": "failure",
-                "steps_completed": list(self.successful_steps), 
+                "steps_completed": list(self._successful_steps), 
                 "failed_at": "exception",
                 "error": str(e),
                 "duration_ms": 0.0

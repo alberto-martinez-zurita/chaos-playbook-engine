@@ -75,34 +75,32 @@ class ConfigLoader:
         return config
     
     def _enrich_with_env_vars(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Return a new config dict enriched with environment variables.
+
+        Does NOT mutate the input dict. API keys stay in os.environ only
+        (never copied into the returned config to avoid accidental logging).
         """
-        Añade variables de entorno necesarias para ADK.
-        """
-        # API Key (requerida)
         api_key = os.getenv("GOOGLE_API_KEY")
         if not api_key:
             raise ValueError(
-                "⚠️ No se encontró GOOGLE_API_KEY en el archivo .env\n"
-                "Por favor crea un archivo '.env' en la raíz del proyecto con:\n"
-                "GOOGLE_API_KEY=tu_api_key_aqui"
+                "GOOGLE_API_KEY not found in environment.\n"
+                "Create a '.env' file in the project root with:\n"
+                "GOOGLE_API_KEY=your_api_key_here"
             )
-        
-        # Configurar variables de entorno para ADK
-        os.environ["GOOGLE_API_KEY"] = api_key
-        os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "FALSE"
-        
-        # Añadir al config para referencia
-        config['api_key'] = api_key
-        config['use_vertex_ai'] = False
 
-        # 2. MOCK MODE (Nuevo)
-        # Lee del .env, default False si no existe
+        # Configure ADK environment variables
+        os.environ.setdefault("GOOGLE_API_KEY", api_key)
+        os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "FALSE")
+
         mock_mode_env = os.getenv("MOCK_MODE", "false").lower()
-        config['mock_mode'] = mock_mode_env in ("true", "1", "yes")
-        
-        return config
+
+        return {
+            **config,
+            "use_vertex_ai": False,
+            "mock_mode": mock_mode_env in ("true", "1", "yes"),
+        }
     
-    def _validate_config(self, config: Dict[str, Any]):
+    def _validate_config(self, config: Dict[str, Any]) -> None:
         """
         Valida que la configuración tenga los campos requeridos.
         """

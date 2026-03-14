@@ -78,67 +78,55 @@ async def test_all_steps_succeed(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# 2. Failure at each individual step
+# 2. Failure at each individual step (parametrized)
 # ---------------------------------------------------------------------------
 
+_ALL_STEPS = ["get_inventory", "find_pets_by_status", "place_order", "update_pet_status"]
+
+
 @pytest.mark.asyncio
-async def test_failure_at_get_inventory(tmp_path):
-    """Fail on step 1 → failed_at=get_inventory, no steps_completed."""
+@pytest.mark.parametrize(
+    "responses, expected_failed_at, expected_steps_completed",
+    [
+        pytest.param(
+            [FAILURE_500],
+            "get_inventory",
+            [],
+            id="failure_at_get_inventory",
+        ),
+        pytest.param(
+            [SUCCESS, FAILURE_500],
+            "find_pets_by_status",
+            ["get_inventory"],
+            id="failure_at_find_pets",
+        ),
+        pytest.param(
+            [SUCCESS, SUCCESS, FAILURE_500],
+            "place_order",
+            ["get_inventory", "find_pets_by_status"],
+            id="failure_at_place_order",
+        ),
+        pytest.param(
+            [SUCCESS, SUCCESS, SUCCESS, FAILURE_500],
+            "update_pet_status",
+            ["get_inventory", "find_pets_by_status", "place_order"],
+            id="failure_at_update_pet",
+        ),
+    ],
+)
+async def test_failure_at_step(
+    tmp_path, responses, expected_failed_at, expected_steps_completed
+):
+    """Failing at step N → failed_at is that step, prior steps are completed."""
     playbook_path = _write_playbook(tmp_path, {})
-    executor = MockExecutor([FAILURE_500])
+    executor = MockExecutor(responses)
     agent = DeterministicAgent(tool_executor=executor, playbook_path=playbook_path)
 
     result = await agent.run()
 
     assert result["status"] == "failure"
-    assert result["failed_at"] == "get_inventory"
-    assert result["steps_completed"] == []
-
-
-@pytest.mark.asyncio
-async def test_failure_at_find_pets(tmp_path):
-    """Fail on step 2 → failed_at=find_pets_by_status, step 1 completed."""
-    playbook_path = _write_playbook(tmp_path, {})
-    executor = MockExecutor([SUCCESS, FAILURE_500])
-    agent = DeterministicAgent(tool_executor=executor, playbook_path=playbook_path)
-
-    result = await agent.run()
-
-    assert result["status"] == "failure"
-    assert result["failed_at"] == "find_pets_by_status"
-    assert result["steps_completed"] == ["get_inventory"]
-
-
-@pytest.mark.asyncio
-async def test_failure_at_place_order(tmp_path):
-    """Fail on step 3 → failed_at=place_order, steps 1-2 completed."""
-    playbook_path = _write_playbook(tmp_path, {})
-    executor = MockExecutor([SUCCESS, SUCCESS, FAILURE_500])
-    agent = DeterministicAgent(tool_executor=executor, playbook_path=playbook_path)
-
-    result = await agent.run()
-
-    assert result["status"] == "failure"
-    assert result["failed_at"] == "place_order"
-    assert result["steps_completed"] == ["get_inventory", "find_pets_by_status"]
-
-
-@pytest.mark.asyncio
-async def test_failure_at_update_pet(tmp_path):
-    """Fail on step 4 → failed_at=update_pet_status, steps 1-3 completed."""
-    playbook_path = _write_playbook(tmp_path, {})
-    executor = MockExecutor([SUCCESS, SUCCESS, SUCCESS, FAILURE_500])
-    agent = DeterministicAgent(tool_executor=executor, playbook_path=playbook_path)
-
-    result = await agent.run()
-
-    assert result["status"] == "failure"
-    assert result["failed_at"] == "update_pet_status"
-    assert result["steps_completed"] == [
-        "get_inventory",
-        "find_pets_by_status",
-        "place_order",
-    ]
+    assert result["failed_at"] == expected_failed_at
+    assert result["steps_completed"] == expected_steps_completed
 
 
 # ---------------------------------------------------------------------------

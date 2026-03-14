@@ -82,23 +82,26 @@ class EvaluationRunner:
         start_time = time.time()
         chaos_config = case['chaos_config']
         
-        # Dynamically update dependencies for the test case.
-        # Ensure the test's proxy also respects the global mock_mode.
+        # Create fresh infrastructure per test case (no state leakage).
         test_proxy = ChaosProxy(
             failure_rate=chaos_config['rate'],
             seed=chaos_config['seed'],
             verbose=True,
             mock_mode=self.mock_mode
         )
-        
         test_executor = CircuitBreakerProxy(wrapped_executor=test_proxy)
-        
-        # Hot-swap the agent's executor for this specific case.
-        self.agent.executor = test_executor
-        
-        # Execute the agent's order processing.
+
+        # Create a fresh agent per case instead of hot-swapping internals.
+        case_agent = PetstoreAgent(
+            playbook_path=self.playbook_path,
+            tool_executor=test_executor,
+            llm_client_constructor=Gemini,
+            model_name=self.model_name,
+            verbose=True,
+        )
+
         try:
-            output = await self.agent.process_order(
+            output = await case_agent.process_order(
                 order_id=case['input'],
                 failure_rate=chaos_config['rate'],
                 seed=chaos_config['seed']

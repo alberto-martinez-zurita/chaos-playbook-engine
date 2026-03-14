@@ -38,15 +38,12 @@ async def run_experiment_safe(
     seed: int,
     verbose: bool,
     logger,
-    mock_mode: bool
+    mock_mode: bool,
+    model_name: str = "",
 ) -> Dict:
     """Run single LLM experiment with FRESH agent instance via Dependency Injection."""
     import time
     start_time = time.time()
-    
-    # 1. LOAD CONFIGURATION
-    config = load_config()
-    model_name = get_model_name(config)
     
     # 2. CRITICAL INJECTION: Create dependencies
     # A. Create the BASE Proxy (the one that actually simulates chaos)
@@ -227,7 +224,8 @@ async def run_comparison(args) -> bool:
                 seed=seed,
                 verbose=args.verbose,
                 logger=logger,
-                mock_mode=args.mock_mode
+                mock_mode=args.mock_mode,
+                model_name=model_name,
             )
 
             all_results.append(res)
@@ -250,7 +248,8 @@ async def run_comparison(args) -> bool:
                 seed=seed,
                 verbose=args.verbose,
                 logger=logger,
-                mock_mode=args.mock_mode
+                mock_mode=args.mock_mode,
+                model_name=model_name,
             )
             all_results.append(res)
             
