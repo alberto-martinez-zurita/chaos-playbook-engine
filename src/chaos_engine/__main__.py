@@ -72,6 +72,17 @@ def _cmd_judge(args: argparse.Namespace) -> None:
     print(f"Candidate playbook saved to {output_path}")
 
 
+def _cmd_leaderboard(args: argparse.Namespace) -> None:
+    """Show agent leaderboard from experiment results."""
+    import json
+    from chaos_engine.reporting.comparison import print_leaderboard
+
+    with open(args.metrics, "r", encoding="utf-8") as f:
+        metrics = json.load(f)
+
+    print(print_leaderboard(metrics))
+
+
 def _cmd_evolve(args: argparse.Namespace) -> None:
     """Run playbook evolution (mutation + selection)."""
     from chaos_engine.simulation.mutation import PlaybookEvolver
@@ -166,6 +177,11 @@ def build_parser() -> argparse.ArgumentParser:
     judge.add_argument("--compare", help="Existing playbook to compare against")
     judge.add_argument("--min-samples", type=int, default=5, help="Min samples per pattern")
     judge.set_defaults(func=_cmd_judge)
+
+    # --- leaderboard ---
+    lb = subparsers.add_parser("leaderboard", help="Show agent leaderboard from metrics")
+    lb.add_argument("--metrics", "-m", required=True, help="Path to aggregated_metrics.json")
+    lb.set_defaults(func=_cmd_leaderboard)
 
     # --- evolve ---
     evolve = subparsers.add_parser("evolve", help="Evolve playbook via mutation and selection")
