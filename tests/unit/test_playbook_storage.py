@@ -1,131 +1,133 @@
-import pytest
+"""Tests for PlaybookStorage — JSON strategy matrix with hot-reload."""
+from __future__ import annotations
+
 import json
-import asyncio
 from pathlib import Path
+
+import pytest
+
 from chaos_engine.core.playbook_storage import PlaybookStorage
+
 
 # --- FIXTURES ---
 
 @pytest.fixture
 def temp_storage_file(tmp_path):
-    """Crea una ruta temporal para el archivo JSON del playbook."""
+    """Create a temporary path for the playbook JSON file."""
     d = tmp_path / "data"
     d.mkdir()
     return str(d / "test_chaos_playbook.json")
+
 
 # --- TESTS ---
 
 @pytest.mark.asyncio
 async def test_storage_initialization_creates_file(temp_storage_file):
-    """Verifica que si el archivo no existe, se crea una estructura vacía."""
+    """Verify that if the file doesn't exist, an empty JSON object is created."""
     storage = PlaybookStorage(file_path=temp_storage_file)
-    
-    # El archivo debe haber sido creado en el init
+
     assert Path(temp_storage_file).exists()
-    
-    with open(temp_storage_file, 'r') as f:
+
+    with open(temp_storage_file, "r") as f:
         data = json.load(f)
-        assert data == {"procedures": []}
+        assert data == {}
+
 
 @pytest.mark.asyncio
-async def test_save_procedure(temp_storage_file):
-    """Verifica que se puede guardar un procedimiento correctamente."""
+async def test_add_and_resolve_strategy(temp_storage_file):
+    """Verify adding a strategy and resolving it by api + status_code."""
     storage = PlaybookStorage(file_path=temp_storage_file)
-    
-    # Pasamos metadata explícita para probar que se guarda
-    metadata = {"agent": "TestAgent", "version": "1.0"}
-    
-    proc_id = await storage.save_procedure(
-        failure_type="timeout",
-        api="inventory",
-        recovery_strategy="Wait 5s",
-        success_rate=0.95,
-        metadata=metadata
+
+    await storage.add_or_update_strategy(
+        api="get_inventory",
+        status_code="500",
+        strategy="retry_exponential_backoff",
+        reasoning="Server error, safe to retry",
+        config={"base_delay": 1.0, "max_retries": 3},
     )
-    
-    assert proc_id.startswith("PROC-")
-    
-    # Verificar persistencia en disco
-    with open(temp_storage_file, 'r') as f:
-        data = json.load(f)
-        saved_proc = data["procedures"][0]
-        assert saved_proc["id"] == proc_id
-        assert saved_proc["recovery_strategy"] == "Wait 5s"
-        # Verificar que la metadata que pasamos se guardó
-        assert saved_proc["metadata"]["agent"] == "TestAgent"
+
+    resolved = await storage.resolve_strategy("get_inventory", "500")
+    assert resolved is not None
+    assert resolved["strategy"] == "retry_exponential_backoff"
+    assert resolved["config"]["base_delay"] == 1.0
+
 
 @pytest.mark.asyncio
-async def test_get_best_procedure_logic(temp_storage_file):
-    """
-    CRÍTICO: Verifica que el sistema elige la MEJOR estrategia, 
-    no solo la primera que encuentra.
-    """
+async def test_resolve_falls_back_to_default(temp_storage_file):
+    """Verify fallback to default strategy when specific rule not found."""
     storage = PlaybookStorage(file_path=temp_storage_file)
-    
-    # Usamos 'service_unavailable' que es un tipo válido, en lugar de '503'
-    valid_failure = "service_unavailable"
-    
-    # Estrategia 1: Mediocre (50% éxito)
-    await storage.save_procedure(
-        failure_type=valid_failure,
-        api="inventory",
-        recovery_strategy="Retry immediately",
-        success_rate=0.5
+
+    await storage.set_default_strategy(
+        strategy="escalate_to_human",
+        reasoning="Unknown scenario",
     )
-    
-    # Estrategia 2: Excelente (100% éxito)
-    await storage.save_procedure(
-        failure_type=valid_failure,
-        api="inventory",
-        recovery_strategy="Wait 2s and retry",
-        success_rate=1.0
-    )
-    
-    # Estrategia 3: Buena (80% éxito)
-    await storage.save_procedure(
-        failure_type=valid_failure,
-        api="inventory",
-        recovery_strategy="Wait 1s",
-        success_rate=0.8
-    )
-    
-    # Ejecutar búsqueda
-    best = await storage.get_best_procedure(failure_type=valid_failure, api="inventory")
-    
-    # Debe devolver la Estrategia 2 (la de 1.0 success_rate)
-    assert best is not None
-    assert best["success_rate"] == 1.0
-    assert best["recovery_strategy"] == "Wait 2s and retry"
+
+    resolved = await storage.resolve_strategy("unknown_api", "999")
+    assert resolved is not None
+    assert resolved["strategy"] == "escalate_to_human"
+
 
 @pytest.mark.asyncio
-async def test_validation_errors(temp_storage_file):
-    """Verifica que el sistema rechaza datos basura (Defensive Programming)."""
+async def test_resolve_returns_none_when_no_match(temp_storage_file):
+    """Verify None returned when no strategy matches and no default set."""
     storage = PlaybookStorage(file_path=temp_storage_file)
-    
-    # Caso 1: API inválida
-    with pytest.raises(ValueError) as excinfo:
-        await storage.save_procedure(
-            failure_type="timeout",
-            api="api_que_no_existe", # Inválido
-            recovery_strategy="x"
-        )
-    assert "Invalid api" in str(excinfo.value)
 
-    # Caso 2: Success Rate imposible
-    with pytest.raises(ValueError) as excinfo:
-        await storage.save_procedure(
-            failure_type="timeout",
-            api="inventory",
-            recovery_strategy="x",
-            success_rate=1.5 # Inválido (>1.0)
-        )
-    assert "Invalid success_rate" in str(excinfo.value)
-    
-    # Caso 3: Tipo de fallo inválido (el error que vimos antes)
-    with pytest.raises(ValueError) as excinfo:
-        await storage.save_procedure(
-            failure_type="503", # Inválido
-            api="inventory",
-            recovery_strategy="x"
-        )
-    assert "Invalid failure_type" in str(excinfo.value)
+    resolved = await storage.resolve_strategy("unknown_api", "500")
+    assert resolved is None
+
+
+@pytest.mark.asyncio
+async def test_remove_strategy(temp_storage_file):
+    """Verify strategy removal."""
+    storage = PlaybookStorage(file_path=temp_storage_file)
+
+    await storage.add_or_update_strategy(
+        api="place_order", status_code="429",
+        strategy="wait_and_retry", config={"wait_seconds": 5},
+    )
+    await storage.remove_strategy("place_order", "429")
+
+    resolved = await storage.resolve_strategy("place_order", "429")
+    assert resolved is None
+
+
+@pytest.mark.asyncio
+async def test_save_and_load_full_playbook(temp_storage_file):
+    """Verify full playbook save/load round trip."""
+    storage = PlaybookStorage(file_path=temp_storage_file)
+
+    playbook = {
+        "get_inventory": {
+            "500": {"strategy": "retry_exponential_backoff", "config": {"base_delay": 1.0}},
+        },
+        "default": {"strategy": "fail_fast", "config": {}},
+    }
+
+    await storage.save_playbook(playbook)
+    loaded = await storage.load_playbook()
+
+    assert loaded["get_inventory"]["500"]["strategy"] == "retry_exponential_backoff"
+    assert loaded["default"]["strategy"] == "fail_fast"
+
+
+@pytest.mark.asyncio
+async def test_hot_reload_detects_file_change(temp_storage_file):
+    """Verify get_cached_playbook picks up external file changes."""
+    storage = PlaybookStorage(file_path=temp_storage_file)
+
+    # Prime the cache
+    await storage.get_cached_playbook()
+
+    # External write simulating another process updating the file
+    new_data = {"external_update": {"200": {"strategy": "fail_fast"}}}
+    with open(temp_storage_file, "w") as f:
+        json.dump(new_data, f)
+
+    # Force mtime change detection
+    import os
+    import time
+    # Touch file to ensure mtime differs
+    os.utime(temp_storage_file, (time.time() + 1, time.time() + 1))
+
+    cached = await storage.get_cached_playbook()
+    assert "external_update" in cached
