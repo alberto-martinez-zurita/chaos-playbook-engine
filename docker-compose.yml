@@ -1,0 +1,8 @@
+services:
+  chaos-engine:
+    build: .
+    env_file: .env
+    environment:
+      - MOCK_MODE=true
+    volumes:
+      - ./reports:/app/reports
