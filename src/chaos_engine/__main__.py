@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import signal
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -170,7 +171,20 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _install_signal_handlers() -> None:
+    """Install graceful shutdown handlers for SIGINT/SIGTERM."""
+    def _handler(signum: int, _frame: object) -> None:
+        name = signal.Signals(signum).name
+        print(f"\nReceived {name}. Shutting down gracefully...")
+        sys.exit(128 + signum)
+
+    signal.signal(signal.SIGINT, _handler)
+    signal.signal(signal.SIGTERM, _handler)
+
+
 def main() -> None:
+    _install_signal_handlers()
+
     parser = build_parser()
     args = parser.parse_args()
 

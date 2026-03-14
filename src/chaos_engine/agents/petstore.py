@@ -43,9 +43,10 @@ class PetstoreAgent:
         model_name: str,
         verbose: bool = False,
         mock_mode: bool = None,
+        simulate_delays: bool = True,
     ):
         # 1. CARGA EXPLÍCITA DE CREDENCIALES Y CONFIG
-        load_dotenv() 
+        load_dotenv()
         if not os.getenv("GOOGLE_API_KEY"):
              raise ValueError("❌ CRITICAL: GOOGLE_API_KEY not found.")
 
@@ -54,8 +55,9 @@ class PetstoreAgent:
         self.llm_client_constructor = llm_client_constructor
         self.model_name = model_name
         self.verbose = verbose
+        self.simulate_delays = simulate_delays
         self.logger = logging.getLogger("PetstoreAgent")
-        self.mock_mode = mock_mode 
+        self.mock_mode = mock_mode
 
         # 3. CARGA DE DATOS
         self.playbook_path = playbook_path
@@ -101,22 +103,15 @@ class PetstoreAgent:
         return res
 
     async def wait_seconds(self, seconds: float) -> dict:
-        """
-        Pauses execution (Backoff strategy).
-        Llama al Executor (Proxy) para calcular el tiempo con Jitter.
-        """
-        
-        # ✅ FIX: Llamar al Proxy para calcular Jitter
-        # self.executor es el ChaosProxy (o Circuit Breaker), que implementa el método.
+        """Pauses execution (Backoff strategy) with jitter from Executor."""
         jittered_seconds = self.executor.calculate_jittered_backoff(seconds)
-        
+
         if self.verbose:
             self.logger.info("WAIT STRATEGY: Base %.2fs -> Jittered %.2fs", seconds, jittered_seconds)
-        
-        # Usar el tiempo aleatorio
-        await asyncio.sleep(jittered_seconds) 
-        
-        # Reportar el tiempo real usado
+
+        if self.simulate_delays:
+            await asyncio.sleep(jittered_seconds)
+
         return {"status": "success", "message": f"Waited {jittered_seconds:.2f} seconds"}
 
     async def lookup_playbook(self, tool_name: str, error_code: str) -> Dict[str, Any]:
