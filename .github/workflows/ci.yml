@@ -46,11 +46,18 @@ jobs:
         run: poetry run pip-audit --strict
         continue-on-error: true
 
-      - name: Run unit tests
+      - name: Run unit tests with coverage
         run: |
           poetry run python -m pytest tests/unit/ -v \
+            --cov=chaos_engine --cov-report=term-missing \
             --ignore=tests/unit/test_core_infrastructure.py \
             --ignore=tests/unit/test_petstore_agent.py \
             --ignore=tests/unit/test_petstore_agent_logic.py
+        env:
+          PYTHONPATH: src
+
+      - name: Run integration tests (no API key required)
+        run: |
+          poetry run python -m pytest tests/integration/test_deterministic_pipeline.py -v
         env:
           PYTHONPATH: src
