@@ -3,13 +3,18 @@ Chaos Playbook Storage Module.
 
 Provides JSON-based storage for chaos recovery strategy matrix.
 Thread-safe operations with asyncio.Lock.
+Supports hot-reload via file modification monitoring.
 """
 from __future__ import annotations
 
 import asyncio
 import json
+import logging
+import os
 from pathlib import Path
 from typing import Any, Dict, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class PlaybookStorage:
@@ -33,9 +38,13 @@ class PlaybookStorage:
     }
     """
 
-    def __init__(self, file_path: str = "data/chaos_playbook.json"):
+    def __init__(self, file_path: str = "data/chaos_playbook.json", watch: bool = False):
         self.file_path = Path(file_path)
         self._lock = asyncio.Lock()
+        self._cache: Dict[str, Any] | None = None
+        self._last_mtime: float = 0.0
+        self._watch = watch
+        self._watch_task: asyncio.Task | None = None
         self._ensure_storage_exists()
 
     def _ensure_storage_exists(self):
@@ -153,3 +162,56 @@ class PlaybookStorage:
             return api_rules[str(status_code)]
 
         return playbook.get("default")
+
+    # ---------------------------------------------------------
+    # Hot-reload (E.2)
+    # ---------------------------------------------------------
+
+    def _file_changed(self) -> bool:
+        """Check if the playbook file has been modified since last read."""
+        try:
+            mtime = os.path.getmtime(self.file_path)
+            return mtime > self._last_mtime
+        except OSError:
+            return False
+
+    async def _reload_if_changed(self) -> None:
+        """Reload the playbook from disk if the file has been modified."""
+        if self._file_changed():
+            self._cache = await self._read_playbook()
+            self._last_mtime = os.path.getmtime(self.file_path)
+            logger.info("Playbook hot-reloaded from %s", self.file_path)
+
+    async def get_cached_playbook(self) -> Dict[str, Any]:
+        """Return the playbook, reloading from disk if the file changed.
+
+        This is the preferred read path for long-running processes that
+        want to pick up playbook changes without restarting.
+        """
+        if self._cache is None or self._file_changed():
+            await self._reload_if_changed()
+        return self._cache or {}
+
+    async def start_watching(self, poll_interval: float = 2.0) -> None:
+        """Start a background task that polls for playbook file changes."""
+        if self._watch_task is not None:
+            return
+
+        async def _poll() -> None:
+            while True:
+                await asyncio.sleep(poll_interval)
+                await self._reload_if_changed()
+
+        self._watch_task = asyncio.create_task(_poll())
+        logger.info("Started playbook file watcher (interval=%.1fs)", poll_interval)
+
+    async def stop_watching(self) -> None:
+        """Stop the background file watcher."""
+        if self._watch_task is not None:
+            self._watch_task.cancel()
+            try:
+                await self._watch_task
+            except asyncio.CancelledError:
+                pass
+            self._watch_task = None
+            logger.info("Stopped playbook file watcher")

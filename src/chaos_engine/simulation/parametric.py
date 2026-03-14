@@ -2,6 +2,7 @@
 ParametricABTestRunner - Orchestrator for multi-rate experiments.
 Updated with DEBUGGING for Inconsistency Calculation.
 REFACTORED: Streaming/Generator pattern for GreenOps compliance.
+EXTENDED: Support for N agent types via AgentConfig.
 """
 from __future__ import annotations
 
@@ -9,13 +10,23 @@ import csv
 import json
 import logging
 from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
+from chaos_engine.agents.deterministic import DeterministicAgent
+from chaos_engine.chaos.proxy import ChaosProxy
+from chaos_engine.core.resilience import CircuitBreakerProxy
 from chaos_engine.core.types import Status, WorkflowStep
-from chaos_engine.simulation.runner import ABTestRunner
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class AgentConfig:
+    """Configuration for a single agent type in parametric experiments."""
+    name: str          # e.g. "baseline", "aggressive", "conservative"
+    playbook_path: str  # path to playbook JSON
 
 
 class _StreamingAggregator:
@@ -25,9 +36,10 @@ class _StreamingAggregator:
     Replaces the old ``all_results_buffer`` list that required O(N) memory.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, agent_names: List[str]) -> None:
         # key: (failure_rate, agent_type) -> stats accumulator
         self._buckets: Dict[tuple[float, str], Dict[str, Any]] = {}
+        self._agent_names = agent_names
 
     def _ensure_bucket(self, key: tuple[float, str]) -> Dict[str, Any]:
         if key not in self._buckets:
@@ -94,17 +106,19 @@ class _StreamingAggregator:
                 },
             }
 
+        n_agents = len(self._agent_names)
         metrics: Dict[str, Any] = {}
         for rate in sorted(rates):
             rate_key = str(rate)
             group = rates[rate]
             total = sum(v["n_runs"] for v in group.values())
-            metrics[rate_key] = {
+            entry: Dict[str, Any] = {
                 "failure_rate": rate,
-                "n_experiments": total // 2,
-                "baseline": group.get("baseline", {}),
-                "playbook": group.get("playbook", {}),
+                "n_experiments": total // n_agents,
             }
+            for agent_name in self._agent_names:
+                entry[agent_name] = group.get(agent_name, {})
+            metrics[rate_key] = entry
         return metrics
 
 
@@ -119,36 +133,72 @@ class ParametricABTestRunner:
         playbook_baseline_path: str = "assets/playbooks/baseline.json",
         playbook_training_path: str = "assets/playbooks/training.json",
         simulate_delays: bool = False,
+        agents: Optional[List[AgentConfig]] = None,
     ):
         self.failure_rates = failure_rates
         self.experiments_per_rate = experiments_per_rate
         self.output_dir = output_dir
         self.base_seed = seed
-        self.ab_runner = ABTestRunner(
+        self.simulate_delays = simulate_delays
+        self.logger = logger or logging.getLogger(__name__)
+
+        # Build agent list: use explicit agents if provided, otherwise
+        # fall back to the legacy two-agent baseline/playbook setup.
+        if agents is not None:
+            self.agents = agents
+        else:
+            self.agents = [
+                AgentConfig(name="baseline", playbook_path=playbook_baseline_path),
+                AgentConfig(name="playbook", playbook_path=playbook_training_path),
+            ]
+
+    @classmethod
+    def from_ab_config(
+        cls,
+        failure_rates: List[float],
+        experiments_per_rate: int,
+        output_dir: Path,
+        playbook_baseline_path: str = "assets/playbooks/baseline.json",
+        playbook_training_path: str = "assets/playbooks/training.json",
+        seed: int = 42,
+        simulate_delays: bool = False,
+        logger: Optional[logging.Logger] = None,
+    ) -> "ParametricABTestRunner":
+        """Factory method preserving the original two-agent A/B test interface."""
+        return cls(
+            failure_rates=failure_rates,
+            experiments_per_rate=experiments_per_rate,
+            output_dir=output_dir,
+            seed=seed,
+            logger=logger,
             playbook_baseline_path=playbook_baseline_path,
             playbook_training_path=playbook_training_path,
             simulate_delays=simulate_delays,
-            logger=logger,
         )
-        self.logger = logger or logging.getLogger(__name__)
 
     async def run_parametric_experiments(self) -> Dict[str, Any]:
         self.logger.info("Starting parametric experiments...")
         self.logger.info("Failure rates: %s", self.failure_rates)
         self.logger.info("Experiments per rate: %d", self.experiments_per_rate)
-        self.logger.info("Total: %d runs", len(self.failure_rates) * self.experiments_per_rate * 2)
-        
+        n_agents = len(self.agents)
+        self.logger.info(
+            "Total: %d runs (%d agent types)",
+            len(self.failure_rates) * self.experiments_per_rate * n_agents,
+            n_agents,
+        )
+
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Prepare CSV Streaming (GreenOps: Low Memory Footprint)
         csv_path = self.output_dir / "raw_results.csv"
         csv_keys = [
-            "experiment_id", "agent_type", "outcome", "duration_ms", 
+            "experiment_id", "agent_type", "outcome", "duration_ms",
             "steps_completed", "failed_at", "inconsistencies_count",
             "retries", "seed", "failure_rate"
         ]
 
-        aggregator = _StreamingAggregator()
+        agent_names = [a.name for a in self.agents]
+        aggregator = _StreamingAggregator(agent_names)
         count = 0
 
         with open(csv_path, "w", newline="", encoding="utf-8") as f:
@@ -174,56 +224,59 @@ class ParametricABTestRunner:
 
         return {"total_experiments": count}
 
+    async def _run_single_experiment(
+        self, agent_cfg: AgentConfig, failure_rate: float, seed: int
+    ) -> Dict[str, Any]:
+        """Run a single experiment with fresh infrastructure for any agent type."""
+        chaos_proxy = ChaosProxy(
+            failure_rate=failure_rate,
+            seed=seed,
+            mock_mode=True,
+            verbose=False,
+        )
+        circuit_breaker = CircuitBreakerProxy(
+            wrapped_executor=chaos_proxy,
+            failure_threshold=3,
+            cooldown_seconds=30,
+        )
+        agent = DeterministicAgent(
+            tool_executor=circuit_breaker,
+            playbook_path=agent_cfg.playbook_path,
+            simulate_delays=self.simulate_delays,
+        )
+        result = await agent.run()
+        result["agent_type"] = agent_cfg.name
+        return result
+
     async def _experiment_generator(self) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Generator that yields experiment results one by one.
+        Iterates over all configured agents (N types) per failure rate.
         Reduces cognitive complexity of the main runner and enables streaming.
         """
         for i, rate in enumerate(self.failure_rates):
             self.logger.info("[%d/%d] Testing failure_rate=%.2f", i + 1, len(self.failure_rates), rate)
-            
-            # 1. Baseline Experiments
-            self.logger.info("  Running %d Baseline experiments...", self.experiments_per_rate)
-            for j in range(self.experiments_per_rate):
-                seed = self.base_seed + (i * 1000) + j
-                
-                result = await self.ab_runner.run_experiment(
-                    agent_type="baseline",
-                    failure_rate=rate,
-                    seed=seed
-                )
-                
-                # Enrich identity
-                result["experiment_id"] = f"BASE-{rate}-{j}"
-                result["failure_rate"] = rate
-                result["seed"] = seed
-                
-                if j % 5 == 0:
-                    self.logger.debug("    Baseline run %d completed", j)
-                
-                yield result
 
-            # 2. Playbook Experiments
-            self.logger.info("  Running %d Playbook experiments...", self.experiments_per_rate)
-            for j in range(self.experiments_per_rate):
-                seed = self.base_seed + (i * 1000) + j 
-                
-                result = await self.ab_runner.run_experiment(
-                    agent_type="playbook",
-                    failure_rate=rate,
-                    seed=seed
-                )
-                
-                # Enrich identity
-                result["experiment_id"] = f"PLAY-{rate}-{j}"
-                result["failure_rate"] = rate
-                result["seed"] = seed
-                
-                if j % 5 == 0:
-                    self.logger.debug("    Playbook run %d completed", j)
-                
-                yield result
-            
+            for agent_cfg in self.agents:
+                agent_name = agent_cfg.name
+                prefix = agent_name.upper()[:4]
+
+                self.logger.info("  Running %d %s experiments...", self.experiments_per_rate, agent_name)
+                for j in range(self.experiments_per_rate):
+                    seed = self.base_seed + (i * 1000) + j
+
+                    result = await self._run_single_experiment(agent_cfg, rate, seed)
+
+                    # Enrich identity
+                    result["experiment_id"] = f"{prefix}-{rate}-{j}"
+                    result["failure_rate"] = rate
+                    result["seed"] = seed
+
+                    if j % 5 == 0:
+                        self.logger.debug("    %s run %d completed", agent_name, j)
+
+                    yield result
+
             self.logger.info("   Completed batch for rate %s", rate)
 
     def _calculate_inconsistency(self, result: Dict) -> int:
@@ -241,7 +294,7 @@ class ParametricABTestRunner:
 
         if failed_at in (WorkflowStep.PLACE_ORDER, WorkflowStep.UPDATE_PET):
             return 1
-            
+
         return 0
 
     def _flatten_result_for_csv(self, res: Dict) -> Dict:
@@ -258,4 +311,3 @@ class ParametricABTestRunner:
             "seed": res["seed"],
             "failure_rate": res["failure_rate"]
         }
-
